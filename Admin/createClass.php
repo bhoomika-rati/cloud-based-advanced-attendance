@@ -6,30 +6,25 @@ include '../Includes/session.php';
 
 //------------------------SAVE--------------------------------------------------
 
-if(isset($_POST['save'])){
-    
-    $className=$_POST['className'];
-   
-    $query=mysqli_query($conn,"select * from tblclass where className ='$className'");
-    $ret=mysqli_fetch_array($query);
+if (isset($_POST['save'])) {
+    $className = trim($_POST['className'] ?? '');
 
-    if($ret > 0){ 
+    if (!preg_match('/^(UG|PG)\s+-\s+\S.+$/', $className)) {
+        $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>Enter a class name starting with UG - or PG -, such as UG - Cohort 09.</div>";
+    } else {
+        $checkQuery = mysqli_query($conn, "SELECT Id FROM tblclass WHERE className = '" . mysqli_real_escape_string($conn, $className) . "'");
 
-        $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>This Class Already Exists!</div>";
+        if (!$checkQuery) {
+            $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>Unable to check whether this class already exists.</div>";
+        } elseif (mysqli_num_rows($checkQuery) > 0) {
+            $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>This Class Already Exists!</div>";
+        } else {
+            $query = mysqli_query($conn, "INSERT INTO tblclass(className) VALUES ('$className')");
+            $statusMsg = $query
+                ? "<div class='alert alert-success' style='margin-right:700px;'>Created Successfully!</div>"
+                : "<div class='alert alert-danger' style='margin-right:700px;'>An error occurred while creating the class.</div>";
+        }
     }
-    else{
-
-        $query=mysqli_query($conn,"insert into tblclass(className) value('$className')");
-
-    if ($query) {
-        
-        $statusMsg = "<div class='alert alert-success'  style='margin-right:700px;'>Created Successfully!</div>";
-    }
-    else
-    {
-         $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>An error Occurred!</div>";
-    }
-  }
 }
 
 //---------------------------------------EDIT-------------------------------------------------------------
@@ -41,33 +36,38 @@ if(isset($_POST['save'])){
 
 //--------------------EDIT------------------------------------------------------------
 
- if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "edit")
-	{
-        $Id= $_GET['Id'];
+if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "edit") {
+    $Id = $_GET['Id'];
+    $query = mysqli_query($conn, "SELECT * FROM tblclass WHERE Id = '$Id'");
+    $row = $query ? mysqli_fetch_array($query) : null;
 
-        $query=mysqli_query($conn,"select * from tblclass where Id ='$Id'");
-        $row=mysqli_fetch_array($query);
+    if (isset($_POST['update'])) {
+        $updateSucceeded = false;
+        $className = trim($_POST['className'] ?? '');
 
-        //------------UPDATE-----------------------------
+        if (!preg_match('/^(UG|PG)\s+-\s+\S.+$/', $className)) {
+            $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>Enter a class name starting with UG - or PG -.</div>";
+        } else {
+            $escapedClassName = mysqli_real_escape_string($conn, $className);
+            $duplicateQuery = mysqli_query($conn, "SELECT Id FROM tblclass WHERE className = '$escapedClassName' AND Id != '$Id'");
 
-        if(isset($_POST['update'])){
-    
-            $className=$_POST['className'];
-        
-            $query=mysqli_query($conn,"update tblclass set className='$className' where Id='$Id'");
-
-            if ($query) {
-                
-                echo "<script type = \"text/javascript\">
-                window.location = (\"createClass.php\")
-                </script>"; 
-            }
-            else
-            {
-                $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>An error Occurred!</div>";
+            if (!$duplicateQuery) {
+                $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>Unable to check whether this class already exists.</div>";
+            } elseif (mysqli_num_rows($duplicateQuery) > 0) {
+                $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>This Class Already Exists!</div>";
+            } else {
+                $query = mysqli_query($conn, "UPDATE tblclass SET className='$escapedClassName' WHERE Id='$Id'");
+                $updateSucceeded = (bool)$query;
             }
         }
+
+        if ($updateSucceeded) {
+            echo "<script>window.location = ('createClass.php');</script>";
+        } elseif (!isset($statusMsg)) {
+            $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>An error occurred while updating the class.</div>";
+        }
     }
+}
 
 
 //--------------------------------DELETE------------------------------------------------------------------
@@ -144,7 +144,15 @@ if(isset($_POST['save'])){
                     <div class="form-group row mb-3">
                         <div class="col-xl-6">
                             <label class="form-control-label">Class Name<span class="text-danger ml-2">*</span></label>
-                      <input type="text" class="form-control" name="className" value="<?php echo $row['className'];?>" id="exampleInputFirstName" placeholder="Class Name">
+                            <input type="text" class="form-control" name="className" value="<?php echo htmlspecialchars($row['className'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" id="className" list="classNameExamples" placeholder="e.g. UG - BSc Computer Science Year 1" pattern="^(UG|PG) - .+" title="Start the class name with UG - or PG -." required>
+                            <datalist id="classNameExamples">
+                              <option value="UG - Cohort 01">
+                              <option value="UG - Cohort 02">
+                              <option value="PG - Cohort 01">
+                              <option value="PG - Cohort 02">
+                              <option value="UG - BSc Computer Science Year 1">
+                              <option value="PG - MSc Computer Science Year 1">
+                            </datalist>
                         </div>
                     </div>
                       <?php
@@ -185,7 +193,7 @@ if(isset($_POST['save'])){
                     <tbody>
 
                   <?php
-                      $query = "SELECT * FROM tblclass";
+                      $query = "SELECT * FROM tblclass WHERE className LIKE 'UG - %' OR className LIKE 'PG - %' ORDER BY CASE WHEN className LIKE 'UG - %' THEN 0 ELSE 1 END, className";
                       $rs = $conn->query($query);
                       $num = $rs->num_rows;
                       $sn=0;
@@ -205,10 +213,7 @@ if(isset($_POST['save'])){
                       }
                       else
                       {
-                           echo   
-                           "<div class='alert alert-danger' role='alert'>
-                            No Record Found!
-                            </div>";
+                           echo "<tr><td colspan='4' class='text-center'>No undergraduate or postgraduate classes found.</td></tr>";
                       }
                       
                       ?>

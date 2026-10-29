@@ -204,7 +204,7 @@ if (isset($_GET['edit'])) {
                         <select required name="classArmId" class="form-control">
                           <option value="">--Select Class/Arm--</option>
                           <?php
-                          $classQuery = mysqli_query($conn, "SELECT * FROM tblclass");
+                          $classQuery = mysqli_query($conn, "SELECT * FROM tblclass WHERE className LIKE 'UG - %' OR className LIKE 'PG - %' ORDER BY className");
                           while ($classRow = mysqli_fetch_assoc($classQuery)) {
                             echo "<optgroup label='" . $classRow['className'] . "'>";
                             $armQuery = mysqli_query($conn, "SELECT * FROM tblclassarms WHERE classId = '" . $classRow['Id'] . "'");
@@ -307,16 +307,18 @@ if (isset($_GET['edit'])) {
   <a class="scroll-to-top rounded" href="#page-top">
     <i class="fas fa-angle-up"></i>
   </a>
-  <script src="../vendor/jquery/jquery.min.js"></script>
-  <script src="../vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="../vendor/jquery-easing/jquery.easing.min.js"></script>
-  <script src="../vendor/datatables/jquery.dataTables.min.js"></script>
-  <script src="../vendor/datatables/dataTables.bootstrap4.min.js"></script>
+  <script src="../vendore/jquery/jquery.min.js"></script>
+  <script src="../vendore/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="../vendore/jquery-easing/jquery.easing.min.js"></script>
+  <script src="../vendore/datatables/jquery.dataTables.min.js"></script>
+  <script src="../vendore/datatables/dataTables.bootstrap4.min.js"></script>
   <script src="js/ruang-admin.min.js"></script>
   <!-- Page level custom scripts -->
   <script>
     $(document).ready(function() {
-      $('#dataTableHover').DataTable();
+      if ($('#dataTableHover tbody td[colspan]').length === 0) {
+        $('#dataTableHover').DataTable();
+      }
     });
 
     // Hide alerts after 5 seconds
@@ -329,5 +331,3 @@ if (isset($_GET['edit'])) {
   </script>
 </body>
 </html>
-
-

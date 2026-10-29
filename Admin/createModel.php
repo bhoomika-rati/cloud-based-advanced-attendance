@@ -83,7 +83,7 @@ if (isset($_GET['edit'])) {
   <link href="../vendore/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
   <link href="../vendore/bootstrap/css/bootstrap.min.css" rel="stylesheet" type="text/css">
   <link href="css/ruang-admin.min.css" rel="stylesheet">
-  <link href="../vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
+  <link href="../vendore/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
 
 </head>
 
@@ -191,17 +191,19 @@ if (isset($_GET['edit'])) {
     <i class="fas fa-angle-up"></i>
   </a>
 
-  <script src="../vendor/jquery/jquery.min.js"></script>
-  <script src="../vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="../vendor/jquery-easing/jquery.easing.min.js"></script>
-  <script src="../vendor/datatables/jquery.dataTables.min.js"></script>
-  <script src="../vendor/datatables/dataTables.bootstrap4.min.js"></script>
+  <script src="../vendore/jquery/jquery.min.js"></script>
+  <script src="../vendore/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="../vendore/jquery-easing/jquery.easing.min.js"></script>
+  <script src="../vendore/datatables/jquery.dataTables.min.js"></script>
+  <script src="../vendore/datatables/dataTables.bootstrap4.min.js"></script>
   <script src="js/ruang-admin.min.js"></script>
 
   <!-- Page level custom scripts -->
   <script>
     $(document).ready(function() {
-      $('#dataTableHover').DataTable();
+      if ($('#dataTableHover tbody td[colspan]').length === 0) {
+        $('#dataTableHover').DataTable();
+      }
     });
 
     // Hide alerts after 5 seconds

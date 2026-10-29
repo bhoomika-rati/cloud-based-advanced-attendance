@@ -209,7 +209,8 @@ CREATE TABLE `tblstudents` (
   `password` varchar(50) NOT NULL,
   `classId` varchar(10) NOT NULL,
   `classArmId` varchar(10) NOT NULL,
-  `dateCreated` varchar(50) NOT NULL
+  `dateCreated` varchar(50) NOT NULL,
+  `qrCode_path` varchar(255) DEFAULT NULL
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 --

@@ -93,7 +93,7 @@ if (isset($_POST['viewTimetable'])) {
                                                 <select required name="classArmId" class="form-control">
                                                     <option value="">--Select Class/Arm--</option>
                                                     <?php
-                                                    $classQuery = mysqli_query($conn, "SELECT * FROM tblclass");
+                                                    $classQuery = mysqli_query($conn, "SELECT * FROM tblclass WHERE className LIKE 'UG - %' OR className LIKE 'PG - %' ORDER BY className");
                                                     while ($classRow = mysqli_fetch_assoc($classQuery)) {
                                                         $armQuery = mysqli_query($conn, "SELECT * FROM tblclassarms WHERE classId = '" . $classRow['Id'] . "'");
                                                         echo "<optgroup label='" . $classRow['className'] . "'>";
@@ -194,11 +194,10 @@ if (isset($_POST['viewTimetable'])) {
         <i class="fas fa-angle-up"></i>
     </a>
 
-    <script src="../vendor/jquery/jquery.min.js"></script>
-    <script src="../vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-    <script src="../vendor/jquery-easing/jquery.easing.min.js"></script>
+    <script src="../vendore/jquery/jquery.min.js"></script>
+    <script src="../vendore/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="../vendore/jquery-easing/jquery.easing.min.js"></script>
     <script src="js/ruang-admin.min.js"></script>
 </body>
 
 </html>
-

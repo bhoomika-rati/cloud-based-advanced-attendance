@@ -150,7 +150,7 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "delete")
                         <div class="col-xl-6">
                         <label class="form-control-label">Select Class<span class="text-danger ml-2">*</span></label>
                          <?php
-                        $qry = "SELECT * FROM tblclass ORDER BY className ASC";
+                        $qry = "SELECT * FROM tblclass WHERE className LIKE 'UG - %' OR className LIKE 'PG - %' ORDER BY className ASC";
                         $result = $conn->query($qry);
                         $num = $result->num_rows;		
                         if ($num > 0){
@@ -211,7 +211,8 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "delete")
                           <?php
                           $query = "SELECT tblclassarms.Id,tblclassarms.isAssigned,tblclass.className,tblclassarms.classArmName 
                                     FROM tblclassarms
-                                    INNER JOIN tblclass ON tblclass.Id = tblclassarms.classId";
+                                    INNER JOIN tblclass ON tblclass.Id = tblclassarms.classId
+                                    WHERE tblclass.className LIKE 'UG - %' OR tblclass.className LIKE 'PG - %'";
                           $rs = $conn->query($query);
                           $num = $rs->num_rows;
                           $sn = 0;
@@ -235,10 +236,7 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "delete")
                           }
                           else
                           {
-                            echo   
-                            "<div class='alert alert-danger' role='alert'>
-                              No Record Found!
-                            </div>";
+                            echo "<tr><td colspan='6' class='text-center'>No class groups found for undergraduate/postgraduate classes.</td></tr>";
                           }
                           ?>
                         </tbody>
@@ -275,8 +273,12 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "delete")
     <!-- Page level custom scripts -->
     <script>
       $(document).ready(function () {
-        $('#dataTable').DataTable(); // ID From dataTable 
-        $('#dataTableHover').DataTable(); // ID From dataTable with Hover
+        if ($('#dataTable tbody td[colspan]').length === 0) {
+            $('#dataTable').DataTable();
+        }
+        if ($('#dataTableHover tbody td[colspan]').length === 0) {
+            $('#dataTableHover').DataTable();
+        }
         
         // Delete confirmation alert
         $('.delete-confirm').on('click', function() {
@@ -290,4 +292,3 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "delete")
   </body>
 
 </html>
-

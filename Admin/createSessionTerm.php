@@ -12,17 +12,18 @@ if (isset($_POST['save'])) {
   $startTime = $_POST['startTime'];
   $endTime = $_POST['endTime'];
   $teacherId = $_POST['teacherId'];
+  $courseId = $_POST['subjectId'];
   $type = $_POST['type']; // Add this line
   $day_name = $_POST['day_name']; // Add this line
   $dateCreated = date("Y-m-d");
 
-  $query = mysqli_query($conn, "SELECT * FROM tblsessionterm WHERE sessionName ='$sessionName' AND termId = '$termId'");
+  $query = mysqli_query($conn, "SELECT * FROM tblsessionterm WHERE sessionName ='$sessionName' AND termId = '$termId' AND course_id = '$courseId'");
   $ret = mysqli_fetch_array($query);
 
   if ($ret > 0) {
     $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>This Session and Term Already Exists!</div>";
   } else {
-    $query = mysqli_query($conn, "INSERT INTO tblsessionterm (sessionName, termId, isActive, dateCreated, startTime, endTime, teacher_id, type, day_name) VALUES ('$sessionName', '$termId', '0', '$dateCreated', '$startTime', '$endTime', '$teacherId', '$type', '$day_name')");
+    $query = mysqli_query($conn, "INSERT INTO tblsessionterm (sessionName, termId, isActive, dateCreated, startTime, endTime, teacher_id, course_id, type, day_name) VALUES ('$sessionName', '$termId', '0', '$dateCreated', '$startTime', '$endTime', '$teacherId', '$courseId', '$type', '$day_name')");
     if ($query) {
       $statusMsg = "<div class='alert alert-success'  style='margin-right:700px;'>Created Successfully!</div>";
     } else {
@@ -50,11 +51,12 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "edit") {
     $startTime = $_POST['startTime'];
     $endTime = $_POST['endTime'];
     $teacherId = $_POST['teacherId'];
+    $courseId = $_POST['subjectId'];
     $type = $_POST['type']; // Add this line
     $day_name = $_POST['day_name']; // Add this line
     $dateCreated = date("Y-m-d");
 
-    $query = mysqli_query($conn, "UPDATE tblsessionterm SET sessionName='$sessionName', termId='$termId', isActive='0', startTime='$startTime', endTime='$endTime', teacher_id='$teacherId', type='$type', day_name='$day_name' WHERE Id='$Id'");
+    $query = mysqli_query($conn, "UPDATE tblsessionterm SET sessionName='$sessionName', termId='$termId', isActive='0', startTime='$startTime', endTime='$endTime', teacher_id='$teacherId', course_id='$courseId', type='$type', day_name='$day_name' WHERE Id='$Id'");
 
     if ($query) {
       echo "<script type = \"text/javascript\">
@@ -239,7 +241,8 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "activate
                             echo ' <select required name="subjectId" class="form-control mb-3">';
                             echo '<option value="">--Select Subject--</option>';
                             while ($rows = $result->fetch_assoc()) {
-                                echo '<option value="' . $rows['courseId'] . '" >' . $rows['courseName'] . '</option>'; // Populate the dropdown with course names
+                                $selected = isset($row['course_id']) && $row['course_id'] == $rows['courseId'] ? 'selected' : '';
+                                echo '<option value="' . $rows['courseId'] . '" ' . $selected . '>' . $rows['courseName'] . '</option>'; // Populate the dropdown with course names
                             }
                             echo '</select>';
                         }
@@ -283,6 +286,7 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "activate
                         <th>Start Time</th>
                         <th>End Time</th>
                         <th>Teacher</th>
+                        <th>Course</th>
                         <th>Type</th> <!-- Added Type column header -->
                         <th>Day</th> <!-- Added Day column header -->
                         <th>Status</th>
@@ -296,10 +300,11 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "activate
 
                       <?php
                       $query = "SELECT tblsessionterm.Id,tblsessionterm.sessionName,tblsessionterm.isActive,tblterm.termName, tblsessionterm.startTime, tblsessionterm.endTime, tblsessionterm.teacher_id,
-                    tblclassteacher.firstName, tblclassteacher.lastName, tblsessionterm.type, tblsessionterm.day_name
+                    tblclassteacher.firstName, tblclassteacher.lastName, course.courseName, tblsessionterm.type, tblsessionterm.day_name
                     FROM tblsessionterm
                     INNER JOIN tblterm ON tblterm.Id = tblsessionterm.termId
-                    INNER JOIN tblclassteacher ON tblclassteacher.Id = tblsessionterm.teacher_id"; // Modify this query to include teacher's details
+                    LEFT JOIN tblclassteacher ON tblclassteacher.Id = tblsessionterm.teacher_id
+                    LEFT JOIN course ON course.courseId = tblsessionterm.course_id";
                       $rs = $conn->query($query);
                       $num = $rs->num_rows;
                       $sn = 0;
@@ -318,6 +323,7 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "activate
                               <td>" . $rows['startTime'] . "</td>
                               <td>" . $rows['endTime'] . "</td>
                               <td>" . $rows['firstName'] . ' ' . $rows['lastName'] . "</td> <!-- Display teacher's name -->
+                              <td>" . $rows['courseName'] . "</td>
                               <td>" . $rows['type'] . "</td> <!-- Display session type -->
                               <td>" . $rows['day_name'] . "</td> <!-- Display day -->
                               <td>" . $status . "</td>
@@ -364,13 +370,13 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "activate
     }
   </script>
 
-  <script src="../vendor/jquery/jquery.min.js"></script>
-  <script src="../vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="../vendor/jquery-easing/jquery.easing.min.js"></script>
+  <script src="../vendore/jquery/jquery.min.js"></script>
+  <script src="../vendore/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="../vendore/jquery-easing/jquery.easing.min.js"></script>
   <script src="js/ruang-admin.min.js"></script>
   <!-- Page level plugins -->
-  <script src="../vendor/datatables/jquery.dataTables.min.js"></script>
-  <script src="../vendor/datatables/dataTables.bootstrap4.min.js"></script>
+  <script src="../vendore/datatables/jquery.dataTables.min.js"></script>
+  <script src="../vendore/datatables/dataTables.bootstrap4.min.js"></script>
 
   <!-- Page level custom scripts -->
   <script>
@@ -382,5 +388,3 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "activate
 </body>
 
 </html>
-
-

@@ -35,17 +35,23 @@ if (isset($_POST['save'])) {
     // Hash the password using MD5
     $hashedPassword = md5($password);
 
-    // Generate QR Code
-    $qrCode = new QrCode($admissionNumber);
-    $writer = new PngWriter();
-    $qrCodePath = '../Student/qr-codes/' . $admissionNumber . '.png';
-    $writer->write($qrCode)->saveToFile($qrCodePath);
+    $qrCodePath = null;
+    $qrCodeSqlValue = 'NULL';
+    if (extension_loaded('gd')) {
+      $qrCode = new QrCode($admissionNumber);
+      $writer = new PngWriter();
+      $qrCodePath = '../Student/qr-codes/' . $admissionNumber . '.png';
+      $writer->write($qrCode)->saveToFile($qrCodePath);
+      $qrCodeSqlValue = "'" . mysqli_real_escape_string($conn, $qrCodePath) . "'";
+    }
 
-    $query = mysqli_query($conn, "insert into tblstudents(firstName,lastName,password,admissionNumber,classId,classArmId,dateCreated,qrCode_path) 
-        values('$firstName','$lastName','$hashedPassword','$admissionNumber','$classId','$classArmId','$dateCreated','$qrCodePath')");
+    $query = mysqli_query($conn, "insert into tblstudents(firstName,lastName,otherName,password,admissionNumber,classId,classArmId,dateCreated,qrCode_path)
+        values('$firstName','$lastName','none','$hashedPassword','$admissionNumber','$classId','$classArmId','$dateCreated',$qrCodeSqlValue)");
 
     if ($query) {
-      $statusMsg = "<div class='alert alert-success' style='margin-right:700px;'>Created Successfully!</div>";
+      $statusMsg = $qrCodePath === null
+        ? "<div class='alert alert-warning' style='margin-right:700px;'>Student created successfully. QR image was not generated because the PHP GD extension is unavailable.</div>"
+        : "<div class='alert alert-success' style='margin-right:700px;'>Created Successfully!</div>";
       // Clear the entered values after successful creation
       $firstName = "";
       $lastName = "";
@@ -243,7 +249,7 @@ if (isset($_GET['status'])) {
                       <div class="col-xl-6">
                         <label class="form-control-label">Select Class<span class="text-danger ml-2">*</span></label>
                         <?php
-                        $qry = "SELECT * FROM tblclass ORDER BY className ASC";
+                        $qry = "SELECT * FROM tblclass WHERE className LIKE 'UG - %' OR className LIKE 'PG - %' ORDER BY className ASC";
                         $result = $conn->query($qry);
                         $num = $result->num_rows;
                         if ($num > 0) {

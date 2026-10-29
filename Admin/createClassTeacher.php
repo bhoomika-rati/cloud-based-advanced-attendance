@@ -14,25 +14,30 @@ if (isset($_POST['save'])) {
     $dateCreated = date("Y-m-d");
     $hashedPassword = md5($password); // Hash the password using MD5
 
-    $classArmList = $_POST['selectionList'];
+    $classArmList = $_POST['selectionList'] ?? [];
     $courseId = $_POST['courseId']; // New courseId input
     $moduleId = $_POST['moduleId']; // New moduleId input
 
     $query = mysqli_query($conn, "SELECT * FROM tblclassteacher WHERE emailAddress ='$emailAddress'");
     $ret = mysqli_fetch_array($query);
 
-    if ($ret > 0) {
+    if (empty($classArmList)) {
+        $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>Select at least one class group.</div>";
+    } elseif ($ret > 0) {
         $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>This Email Address Already Exists!</div>";
     } else {
-        $insertTeacherQuery = "INSERT INTO tblclassteacher (firstName, lastName, emailAddress, password, phoneNo, dateCreated, courseId, moduleId) 
-                    VALUES ('$firstName', '$lastName', '$emailAddress', '$hashedPassword', '$phoneNo', '$dateCreated', '$courseId', '$moduleId')";
+        $firstClassArm = explode("-", $classArmList[0], 2);
+        $classId = $firstClassArm[0];
+        $classArmId = $firstClassArm[1] ?? '';
+        $insertTeacherQuery = "INSERT INTO tblclassteacher (firstName, lastName, emailAddress, password, phoneNo, classId, classArmId, dateCreated, courseId, moduleId)
+                    VALUES ('$firstName', '$lastName', '$emailAddress', '$hashedPassword', '$phoneNo', '$classId', '$classArmId', '$dateCreated', '$courseId', '$moduleId')";
         $insertTeacherResult = mysqli_query($conn, $insertTeacherQuery);
 
         if ($insertTeacherResult) {
             $teacherId = mysqli_insert_id($conn);
 
             foreach ($classArmList as $classArm) {
-                $classArmIds = explode("-", $classArm); // Splitting classId and classArmId
+                $classArmIds = explode("-", $classArm, 2); // Splitting classId and classArmId
                 $classId = $classArmIds[0];
                 $classArmId = $classArmIds[1];
 
@@ -60,10 +65,18 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit' && isset($_GET['Id'])) {
 
     if ($fetchTeacherResult && mysqli_num_rows($fetchTeacherResult) > 0) {
         $teacherData = mysqli_fetch_assoc($fetchTeacherResult);
+        $teacherId = $teacherData['Id'];
         $firstName = $teacherData['firstName'];
         $lastName = $teacherData['lastName'];
         $emailAddress = $teacherData['emailAddress'];
         $phoneNo = $teacherData['phoneNo'];
+        $courseId = $teacherData['courseId'];
+        $moduleId = $teacherData['moduleId'];
+        $selectedClassArms = [];
+        $classArmQuery = mysqli_query($conn, "SELECT CONCAT(tblclassarms.classId, '-', tblclassarms.Id) AS selectionValue, CONCAT(tblclass.className, ' - ', tblclassarms.classArmName) AS selectionLabel FROM tblclassteacher_classarms INNER JOIN tblclassarms ON tblclassarms.Id = tblclassteacher_classarms.classarm_Id INNER JOIN tblclass ON tblclass.Id = tblclassarms.classId WHERE tblclassteacher_classarms.classteacher_Id = '$teacherId'");
+        while ($classArmQuery && ($classArm = mysqli_fetch_assoc($classArmQuery))) {
+            $selectedClassArms[] = $classArm;
+        }
         // Other fields can be fetched similarly
     } else {
         // Teacher not found with the provided ID
@@ -77,18 +90,41 @@ if (isset($_POST['update'])) {
     $lastName = $_POST['lastName'];
     $emailAddress = $_POST['emailAddress'];
     $phoneNo = $_POST['phoneNo'];
-    // Fetch other fields from the form similarly
+    $courseId = $_POST['courseId'];
+    $moduleId = $_POST['moduleId'];
+    $classArmList = $_POST['selectionList'] ?? [];
 
-    // Update query to update the teacher's information
-    $updateTeacherQuery = "UPDATE tblclassteacher SET firstName='$firstName', lastName='$lastName', emailAddress='$emailAddress', phoneNo='$phoneNo' WHERE Id='$teacherId'";
-    $updateTeacherResult = mysqli_query($conn, $updateTeacherQuery);
-
-    if ($updateTeacherResult) {
-        // Update was successful
-        // You can optionally redirect the user or display a success message
+    if (empty($classArmList)) {
+        $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>Select at least one class group.</div>";
     } else {
-        // Update failed
-        // You can show an error message
+        $firstClassArm = explode("-", $classArmList[0], 2);
+        $classId = $firstClassArm[0];
+        $classArmId = $firstClassArm[1] ?? '';
+        $passwordUpdate = empty($_POST['password']) ? '' : ", password='" . md5($_POST['password']) . "'";
+        $updateTeacherQuery = "UPDATE tblclassteacher SET firstName='$firstName', lastName='$lastName', emailAddress='$emailAddress', phoneNo='$phoneNo', courseId='$courseId', moduleId='$moduleId', classId='$classId', classArmId='$classArmId'$passwordUpdate WHERE Id='$teacherId'";
+        $updateTeacherResult = mysqli_query($conn, $updateTeacherQuery);
+
+        if ($updateTeacherResult) {
+            $conn->begin_transaction();
+            $relationshipsSaved = mysqli_query($conn, "DELETE FROM tblclassteacher_classarms WHERE classteacher_Id = '$teacherId'");
+            foreach ($classArmList as $classArm) {
+                $classArmIds = explode("-", $classArm, 2);
+                if (count($classArmIds) !== 2 || !mysqli_query($conn, "INSERT INTO tblclassteacher_classarms (classteacher_Id, classarm_Id) VALUES ('$teacherId', '" . $classArmIds[1] . "')")) {
+                    $relationshipsSaved = false;
+                    break;
+                }
+            }
+            if ($relationshipsSaved) {
+                $conn->commit();
+            } else {
+                $conn->rollback();
+            }
+            $statusMsg = $relationshipsSaved
+                ? "<div class='alert alert-success' style='margin-right:700px;'>Teacher Updated Successfully!</div>"
+                : "<div class='alert alert-danger' style='margin-right:700px;'>Teacher details were saved, but class groups could not be updated.</div>";
+        } else {
+            $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>An error occurred while updating teacher details.</div>";
+        }
     }
 }
 
@@ -187,7 +223,7 @@ if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['Id']))
                                         <div class="form-group row mb-3">
                                             <div class="col-xl-6">
                                                 <label class="form-control-label">Password<span class="text-danger ml-2">*</span></label>
-                                                <input type="password" class="form-control" required name="password" id="exampleInputPassword">
+                                                <input type="password" class="form-control" name="password" id="exampleInputPassword" <?php echo isset($teacherId) ? '' : 'required'; ?>>
                                             </div>
                                         </div>
                                         <div class="form-group row mb-3">
@@ -222,11 +258,11 @@ if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['Id']))
                                                     <div class="col-xl-6">
                                                     <label class="form-control-label">Select Class<span class="text-danger ml-2"></span></label>
                                                     <?php
-                                                                                                 $qry = "SELECT * FROM tblclass ORDER BY className ASC";
+                                                                                                 $qry = "SELECT * FROM tblclass WHERE className LIKE 'UG - %' OR className LIKE 'PG - %' ORDER BY className ASC";
                                                                                                  $result = $conn->query($qry);
                                                                                                  $num = $result->num_rows;
                                                                                                  if ($num > 0) {
-                                                                                                     echo '<select required name="classId" id="classId" onchange="classArmDropdown(this.value)" class="form-control mb-3">';
+                                                                                                     echo '                                                                                                     <select name="classId" id="classId" onchange="classArmDropdown(this.value)" class="form-control mb-3">';
                                                                                                      echo '<option value="">--Select Class--</option>';
                                                                                                      while ($rows = $result->fetch_assoc()) {
                                                                                                          echo '<option value="' . $rows['Id'] . '" >' . $rows['className'] . '</option>';
@@ -237,7 +273,7 @@ if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['Id']))
                                                     </div>
                                                     <div class="col-xl-6">
                                                     <label class="form-control-label">Class Group<span class="text-danger ml-2"></span></label>
-                                                    <select required name="classArmId" id="classArmId" class="form-control mb-3">
+                                                    <select name="classArmId" id="classArmId" class="form-control mb-3">
                                                     <option value="">--Select Class Arm--</option>
                                                     </select>
                                                     <button type="button" class="btn btn-primary" onclick="addToSelection()">Add to Selection</button>
@@ -247,6 +283,9 @@ if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['Id']))
                                                     <div class="col-xl-12">
                                                     <label class="form-control-label">Selected Class Group<span class="text-danger ml-2">*</span></label>
                                                     <select multiple name="selectionList[]" id="selectionList" class="form-control mb-3">
+                                                    <?php foreach (($selectedClassArms ?? []) as $selectedClassArm) { ?>
+                                                        <option selected value="<?php echo htmlspecialchars($selectedClassArm['selectionValue'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($selectedClassArm['selectionLabel'], ENT_QUOTES, 'UTF-8'); ?></option>
+                                                    <?php } ?>
                                                     </select>
                                                     </div>
                                                     </div>
@@ -347,14 +386,14 @@ if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['Id']))
         <i class="fas fa-angle-up"></i>
     </a>
 
-    <script src="../vendor/jquery/jquery.min.js"></script>
-    <script src="../vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-    <script src="../vendor/jquery-easing/jquery.easing.min.js"></script>
+    <script src="../vendore/jquery/jquery.min.js"></script>
+    <script src="../vendore/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="../vendore/jquery-easing/jquery.easing.min.js"></script>
     <script src="js/ruang-admin.min.js"></script>
 
     <!-- Page level plugins -->
-    <script src="../vendor/datatables/jquery.dataTables.min.js"></script>
-    <script src="../vendor/datatables/dataTables.bootstrap4.min.js"></script>
+    <script src="../vendore/datatables/jquery.dataTables.min.js"></script>
+    <script src="../vendore/datatables/dataTables.bootstrap4.min.js"></script>
 
     <!-- Page level custom scripts -->
     <script>
@@ -370,17 +409,25 @@ if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['Id']))
         function addToSelection() {
             var classId = document.getElementById("classId").value;
             var classArmId = document.getElementById("classArmId").value;
-                var className = $("#classId option:selected").text();
-                var classArmName = $("#classArmId option:selected").text();
+            var className = $("#classId option:selected").text();
+            var classArmName = $("#classArmId option:selected").text();
+            var optionValue = classId + "-" + classArmId;
+            var selectedGroups = document.getElementById("selectionList");
 
-                if (classId != "" && classArmId != "") {
-                    var optionText = className + " - " + classArmName;
-                    var optionValue = classId + "-" + classArmId;
-                    $("#selectionList").append('<option value="' + optionValue + '">' + optionText + '</option>');
-                } else {
-                    alert("Please select both class and class arm.");
+            if (classId !== "" && classArmId !== "") {
+                if (!Array.from(selectedGroups.options).some(function(option) {
+                    return option.value === optionValue;
+                })) {
+                    var option = document.createElement("option");
+                    option.value = optionValue;
+                    option.text = className + " - " + classArmName;
+                    option.selected = true;
+                    selectedGroups.add(option);
                 }
+            } else {
+                alert("Please select both class and class arm.");
             }
+        }
 
             function classArmDropdown(classId) {
                 if (classId == "") {
@@ -409,7 +456,3 @@ if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['Id']))
 </body>
 
 </html>
-
-
-
-

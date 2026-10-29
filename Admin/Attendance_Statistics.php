@@ -8,7 +8,7 @@ $query = "SELECT CONCAT(tblclass.className, ' (', tblclassarms.classArmName, ')'
           INNER JOIN tblstudents ON tblstudents.admissionNumber = tblattendance.admissionNo
           INNER JOIN tblclass ON tblclass.Id = tblstudents.classId
           INNER JOIN tblclassarms ON tblclassarms.Id = tblstudents.classArmId
-          WHERE tblattendance.status = '0'
+          WHERE tblattendance.status = '1'
           GROUP BY tblstudents.classId, tblstudents.classArmId";
 $classArmAbsences = [];
 $result = $conn->query($query);
@@ -21,12 +21,12 @@ if ($result) {
 }
 
 // Fetch number of absences by each course
-$query = "SELECT course.courseName, COUNT(*) AS count
+$query = "SELECT COALESCE(course.courseName, 'Course unavailable') AS courseName, COUNT(*) AS count
           FROM tblattendance
           INNER JOIN tblsessionterm ON tblsessionterm.Id = tblattendance.sessionTermId
-          INNER JOIN course ON tblsessionterm.course_id = course.courseId
-          WHERE tblattendance.status = '0'
-          GROUP BY course.courseName";
+          LEFT JOIN course ON tblsessionterm.course_id = course.courseId
+          WHERE tblattendance.status = '1'
+          GROUP BY COALESCE(course.courseName, 'Course unavailable')";
 $courseAbsences = [];
 $result = $conn->query($query);
 if ($result) {
@@ -41,7 +41,7 @@ if ($result) {
 $query = "SELECT tblsessionterm.sessionName, COUNT(*) AS count
           FROM tblattendance
           INNER JOIN tblsessionterm ON tblsessionterm.Id = tblattendance.sessionTermId
-          WHERE tblattendance.status = '0'
+          WHERE tblattendance.status = '1'
           GROUP BY tblsessionterm.sessionName";
 $sessionAbsences = [];
 $result = $conn->query($query);
@@ -54,7 +54,7 @@ if ($result) {
 }
 
 // Fetch total number of absences
-$query = "SELECT COUNT(*) AS totalAbsences FROM tblattendance WHERE status = '0'";
+$query = "SELECT COUNT(*) AS totalAbsences FROM tblattendance WHERE status = '1'";
 $result = $conn->query($query);
 $totalAbsences = $result->fetch_assoc()['totalAbsences'];
 
@@ -63,7 +63,7 @@ $query = "SELECT CONCAT( tblclassteacher.firstName, ' ', tblclassteacher.lastNam
           FROM tblattendance
           INNER JOIN tblsessionterm ON tblsessionterm.Id = tblattendance.sessionTermId
           INNER JOIN  tblclassteacher ON  tblclassteacher.Id= tblsessionterm.teacher_id
-          WHERE tblattendance.status = '0'
+          WHERE tblattendance.status = '1'
           GROUP BY tblsessionterm.teacher_id";
 $teacherAbsences = [];
 $result = $conn->query($query);
@@ -80,7 +80,7 @@ $query = "SELECT tblclass.className, COUNT(*) AS count
           FROM tblattendance
           INNER JOIN tblstudents ON tblstudents.admissionNumber = tblattendance.admissionNo
           INNER JOIN tblclass ON tblclass.Id = tblstudents.classId
-          WHERE tblattendance.status = '0'
+          WHERE tblattendance.status = '1'
           GROUP BY tblstudents.classId";
 $classAbsences = [];
 $result = $conn->query($query);
@@ -98,11 +98,11 @@ $query = "SELECT CONCAT(tblclass.className, ' (', tblclassarms.classArmName, ')'
           INNER JOIN tblstudents ON tblstudents.admissionNumber = tblattendance.admissionNo
           INNER JOIN tblclass ON tblclass.Id = tblstudents.classId
           INNER JOIN tblclassarms ON tblclassarms.Id = tblstudents.classArmId
-          WHERE tblattendance.status = '0'
+          WHERE tblattendance.status = '1'
           GROUP BY tblstudents.classId, tblstudents.classArmId
           ORDER BY COUNT(*) DESC
           LIMIT 1";
-$mostAbsentClassArm = $conn->query($query)->fetch_assoc();
+$mostAbsentClassArm = $conn->query($query)->fetch_assoc() ?: ['classArm' => 'N/A', 'count' => 0];
 
 ?>
 
@@ -372,5 +372,3 @@ $mostAbsentClassArm = $conn->query($query)->fetch_assoc();
 </body>
 
 </html>
-
-

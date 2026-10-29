@@ -252,19 +252,23 @@ if (isset($_GET['delete'])) {
     <i class="fas fa-angle-up"></i>
   </a>
 
-  <script src="../vendor/jquery/jquery.min.js"></script>
-  <script src="../vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="../vendor/jquery-easing/jquery.easing.min.js"></script>
+  <script src="../vendore/jquery/jquery.min.js"></script>
+  <script src="../vendore/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="../vendore/jquery-easing/jquery.easing.min.js"></script>
   <script src="js/ruang-admin.min.js"></script>
   <!-- Page level plugins -->
-  <script src="../vendor/datatables/jquery.dataTables.min.js"></script>
-  <script src="../vendor/datatables/dataTables.bootstrap4.min.js"></script>
+  <script src="../vendore/datatables/jquery.dataTables.min.js"></script>
+  <script src="../vendore/datatables/dataTables.bootstrap4.min.js"></script>
 
   <!-- Page level custom scripts -->
   <script>
     $(document).ready(function() {
-      $('#dataTable').DataTable(); // ID From dataTable 
-      $('#dataTableHover').DataTable(); // ID From dataTable with Hover
+      if ($('#dataTable tbody td[colspan]').length === 0) {
+        $('#dataTable').DataTable();
+      }
+      if ($('#dataTableHover tbody td[colspan]').length === 0) {
+        $('#dataTableHover').DataTable();
+      }
 
       // Auto-hide alert messages after a few seconds
       setTimeout(function() {
@@ -275,4 +279,3 @@ if (isset($_GET['delete'])) {
 </body>
 
 </html>
-
