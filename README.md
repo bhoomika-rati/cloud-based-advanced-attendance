@@ -1,4 +1,4 @@
-# 📚 Attendance Management System
+# 📚 Attendly | Attendance Management System
 
 A comprehensive web-based attendance management system designed for educational institutions to efficiently track and manage student attendance.
 

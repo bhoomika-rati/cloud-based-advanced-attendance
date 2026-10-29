@@ -198,7 +198,7 @@ if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['Id']))
                                     <?php echo $statusMsg; ?>
                                 </div>
                                 <div class="card-body">
-                                    <form method="post">
+                                    <form method="post" onsubmit="return prepareClassGroupSelection();">
                                         <input type="hidden" name="teacherId" value="<?php echo isset($teacherId) ? $teacherId : ''; ?>">
                                         <div class="form-group row mb-3">
                                             <div class="col-xl-6">
@@ -258,35 +258,30 @@ if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['Id']))
                                                     <div class="col-xl-6">
                                                     <label class="form-control-label">Select Class<span class="text-danger ml-2"></span></label>
                                                     <?php
-                                                                                                 $qry = "SELECT * FROM tblclass WHERE className LIKE 'UG - %' OR className LIKE 'PG - %' ORDER BY className ASC";
-                                                                                                 $result = $conn->query($qry);
-                                                                                                 $num = $result->num_rows;
-                                                                                                 if ($num > 0) {
-                                                                                                     echo '                                                                                                     <select name="classId" id="classId" onchange="classArmDropdown(this.value)" class="form-control mb-3">';
-                                                                                                     echo '<option value="">--Select Class--</option>';
-                                                                                                     while ($rows = $result->fetch_assoc()) {
-                                                                                                         echo '<option value="' . $rows['Id'] . '" >' . $rows['className'] . '</option>';
-                                                                                                     }
-                                                                                                     echo '</select>';
-                                                                                                 }
-                                                                                                 ?>
+                                                    $assignedClassArm = $selectedClassArms[0] ?? null;
+                                                    $assignedClassParts = $assignedClassArm
+                                                        ? explode('-', $assignedClassArm['selectionValue'], 2)
+                                                        : [];
+                                                    $assignedClassId = $assignedClassParts[0] ?? '';
+                                                    $assignedClassArmId = $assignedClassParts[1] ?? '';
+                                                    $qry = "SELECT * FROM tblclass WHERE className LIKE 'UG - %' OR className LIKE 'PG - %' ORDER BY className ASC";
+                                                    $result = $conn->query($qry);
+                                                    ?>
+                                                    <select name="classId" id="classId" onchange="classArmDropdown(this.value)" class="form-control mb-3" required>
+                                                        <option value="">--Select Class--</option>
+                                                        <?php while ($rows = $result->fetch_assoc()) { ?>
+                                                            <option value="<?php echo htmlspecialchars($rows['Id'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo $rows['Id'] == $assignedClassId ? 'selected' : ''; ?>>
+                                                                <?php echo htmlspecialchars($rows['className'], ENT_QUOTES, 'UTF-8'); ?>
+                                                            </option>
+                                                        <?php } ?>
+                                                    </select>
                                                     </div>
                                                     <div class="col-xl-6">
-                                                    <label class="form-control-label">Class Group<span class="text-danger ml-2"></span></label>
-                                                    <select name="classArmId" id="classArmId" class="form-control mb-3">
+                                                    <label class="form-control-label">Class Group<span class="text-danger ml-2">*</span></label>
+                                                    <select name="classArmId" id="classArmId" data-selected-value="<?php echo htmlspecialchars($assignedClassArmId, ENT_QUOTES, 'UTF-8'); ?>" class="form-control mb-3" required>
                                                     <option value="">--Select Class Arm--</option>
                                                     </select>
-                                                    <button type="button" class="btn btn-primary" onclick="addToSelection()">Add to Selection</button>
-                                                    </div>
-                                                    </div>
-                                                    <div class="form-group row mb-3">
-                                                    <div class="col-xl-12">
-                                                    <label class="form-control-label">Selected Class Group<span class="text-danger ml-2">*</span></label>
-                                                    <select multiple name="selectionList[]" id="selectionList" class="form-control mb-3">
-                                                    <?php foreach (($selectedClassArms ?? []) as $selectedClassArm) { ?>
-                                                        <option selected value="<?php echo htmlspecialchars($selectedClassArm['selectionValue'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($selectedClassArm['selectionLabel'], ENT_QUOTES, 'UTF-8'); ?></option>
-                                                    <?php } ?>
-                                                    </select>
+                                                    <input type="hidden" name="selectionList[]" id="selectionList">
                                                     </div>
                                                     </div>
                                                     <div class="form-group row mb-3">
@@ -406,50 +401,49 @@ if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['Id']))
             return confirm('Are you sure you want to delete this teacher?');
         }
 
-        function addToSelection() {
+        function prepareClassGroupSelection() {
             var classId = document.getElementById("classId").value;
             var classArmId = document.getElementById("classArmId").value;
-            var className = $("#classId option:selected").text();
-            var classArmName = $("#classArmId option:selected").text();
-            var optionValue = classId + "-" + classArmId;
-            var selectedGroups = document.getElementById("selectionList");
 
-            if (classId !== "" && classArmId !== "") {
-                if (!Array.from(selectedGroups.options).some(function(option) {
-                    return option.value === optionValue;
-                })) {
-                    var option = document.createElement("option");
-                    option.value = optionValue;
-                    option.text = className + " - " + classArmName;
-                    option.selected = true;
-                    selectedGroups.add(option);
-                }
-            } else {
-                alert("Please select both class and class arm.");
+            if (classId === "" || classArmId === "") {
+                alert("Please select both a class and class group.");
+                return false;
             }
+
+            document.getElementById("selectionList").value = classId + "-" + classArmId;
+            return true;
         }
 
-            function classArmDropdown(classId) {
-                if (classId == "") {
-                    document.getElementById("classArmId").innerHTML = '<option value="">--Select Class Arm--</option>';
-                    return;
-                } else {
-                    if (window.XMLHttpRequest) {
-                        // code for IE7+, Firefox, Chrome, Opera, Safari
-                        xmlhttp = new XMLHttpRequest();
-                    } else {
-                        // code for IE6, IE5
-                        xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-                    }
-                    xmlhttp.onreadystatechange = function() {
-                        if (this.readyState == 4 && this.status == 200) {
-                            document.getElementById("classArmId").innerHTML = this.responseText;
-                        }
-                    };
-                    xmlhttp.open("GET", "ajaxClassArms.php?cid=" + classId, true);
-                    xmlhttp.send();
-                }
+        function classArmDropdown(classId, selectedClassArmId) {
+            var classArmSelect = document.getElementById("classArmId");
+            classArmSelect.innerHTML = '<option value="">--Select Class Group--</option>';
+
+            if (classId === "") {
+                return;
             }
+
+            var request = new XMLHttpRequest();
+            request.onreadystatechange = function() {
+                if (this.readyState === 4 && this.status === 200) {
+                    classArmSelect.innerHTML = this.responseText;
+                    if (selectedClassArmId) {
+                        classArmSelect.value = selectedClassArmId;
+                    }
+                }
+            };
+            request.open("GET", "ajaxClassArms.php?cid=" + encodeURIComponent(classId), true);
+            request.send();
+        }
+
+        $(document).ready(function() {
+            var classSelect = document.getElementById("classId");
+            if (classSelect.value !== "") {
+                classArmDropdown(
+                    classSelect.value,
+                    document.getElementById("classArmId").getAttribute("data-selected-value")
+                );
+            }
+        });
 
 
         </script>

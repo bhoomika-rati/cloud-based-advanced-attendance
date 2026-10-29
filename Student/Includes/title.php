@@ -1,1 +1,1 @@
-  <title>EPG AMS - Dashboard</title>
+  <title>Attendly | Dashboard</title>

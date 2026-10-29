@@ -162,9 +162,9 @@ $activeGroup = $activeGroups[$currentPage] ?? '';
 <ul class="navbar-nav sidebar sidebar-dark accordion aa-sidebar" id="accordionSidebar">
     <a class="sidebar-brand d-flex align-items-center" href="index.php">
         <div class="sidebar-brand-icon">
-            <i class="fas fa-shield-alt"></i>
+            <img src="../img/logo/attendly-mark.svg" alt="">
         </div>
-        <div class="sidebar-brand-text">Advanced Attendance</div>
+        <div class="sidebar-brand-text">Attendly</div>
     </a>
 
     <li class="nav-item <?php echo $currentPage === 'index.php' ? 'active' : ''; ?>">
