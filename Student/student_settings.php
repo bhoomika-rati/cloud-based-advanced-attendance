@@ -46,7 +46,7 @@ $pageTitle = 'Settings';
 require __DIR__ . '/Includes/student_page_start.php';
 ?>
 <header class="student-page-heading"><div><h1>Settings</h1><p>Keep your account secure and your details up to date.</p></div></header>
-<?php if (!empty($_GET['updated'])): ?><div class="student-alert success mb-4" role="status">Your password was changed successfully.</div><?php endif; ?>
+<?php if (($_GET['updated'] ?? '') === '1'): ?><div class="student-alert success mb-4" role="status">Password updated successfully. Use your new password the next time you sign in.</div><?php endif; ?>
 <?php if ($errorMessage !== ''): ?><div class="alert alert-danger"><?= studentEscape($errorMessage) ?></div><?php endif; ?>
 <div class="row">
     <div class="col-lg-7 mb-4">
@@ -54,9 +54,33 @@ require __DIR__ . '/Includes/student_page_start.php';
             <h2 class="student-card-title">Change password</h2>
             <form method="post" autocomplete="off">
                 <input type="hidden" name="csrf_token" value="<?= studentEscape(studentCsrfToken()) ?>">
-                <div class="form-group"><label class="student-form-label" for="current-password">Current password</label><input id="current-password" class="form-control student-form-control" type="password" name="current_password" required autocomplete="current-password"></div>
-                <div class="form-group"><label class="student-form-label" for="new-password">New password</label><input id="new-password" class="form-control student-form-control" type="password" name="new_password" minlength="8" required autocomplete="new-password"></div>
-                <div class="form-group"><label class="student-form-label" for="confirm-password">Confirm new password</label><input id="confirm-password" class="form-control student-form-control" type="password" name="confirm_password" minlength="8" required autocomplete="new-password"></div>
+                <div class="form-group">
+                    <label class="student-form-label" for="current-password">Current password</label>
+                    <div class="student-password-field">
+                        <input id="current-password" class="form-control student-form-control" type="password" name="current_password" required autocomplete="current-password">
+                        <button class="student-password-toggle" type="button" data-password-toggle="current-password" data-password-label="current password" aria-label="Show current password" aria-pressed="false">
+                            <i class="fas fa-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="student-form-label" for="new-password">New password</label>
+                    <div class="student-password-field">
+                        <input id="new-password" class="form-control student-form-control" type="password" name="new_password" minlength="8" required autocomplete="new-password">
+                        <button class="student-password-toggle" type="button" data-password-toggle="new-password" data-password-label="new password" aria-label="Show new password" aria-pressed="false">
+                            <i class="fas fa-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="student-form-label" for="confirm-password">Confirm new password</label>
+                    <div class="student-password-field">
+                        <input id="confirm-password" class="form-control student-form-control" type="password" name="confirm_password" minlength="8" required autocomplete="new-password">
+                        <button class="student-password-toggle" type="button" data-password-toggle="confirm-password" data-password-label="password confirmation" aria-label="Show password confirmation" aria-pressed="false">
+                            <i class="fas fa-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
                 <button class="student-action" type="submit"><i class="fas fa-lock"></i> Update password</button>
             </form>
         </section>
@@ -70,4 +94,49 @@ require __DIR__ . '/Includes/student_page_start.php';
         </section>
     </div>
 </div>
+<style>
+    .student-password-field { position: relative; }
+    .student-password-field .student-form-control { padding-right: 48px; }
+    .student-password-toggle {
+        position: absolute;
+        top: 50%;
+        right: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border: 0;
+        border-radius: 8px;
+        color: #64748b;
+        background: transparent;
+        transform: translateY(-50%);
+        cursor: pointer;
+    }
+    .student-password-toggle:hover,
+    .student-password-toggle:focus-visible { color: #2854cc; background: #edf2ff; }
+    .student-password-toggle:focus-visible { outline: 2px solid #2854cc; outline-offset: 1px; }
+</style>
+<script>
+    document.querySelectorAll('[data-password-toggle]').forEach(function (toggle) {
+        toggle.addEventListener('click', function () {
+            var input = document.getElementById(toggle.getAttribute('data-password-toggle'));
+            var icon = toggle.querySelector('i');
+            if (!input || !icon) {
+                return;
+            }
+
+            var isVisible = input.type === 'text';
+            input.type = isVisible ? 'password' : 'text';
+            toggle.setAttribute('aria-pressed', String(!isVisible));
+            toggle.setAttribute(
+                'aria-label',
+                (isVisible ? 'Show ' : 'Hide ') + toggle.getAttribute('data-password-label')
+            );
+            icon.classList.toggle('fa-eye', isVisible);
+            icon.classList.toggle('fa-eye-slash', !isVisible);
+        });
+    });
+</script>
 <?php require __DIR__ . '/Includes/student_page_end.php'; ?>

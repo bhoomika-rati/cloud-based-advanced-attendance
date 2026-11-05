@@ -1,0 +1,21 @@
+.env
+.env.*
+!.env.example
+
+# Local editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+
+# Runtime logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Student-uploaded profile images are local user data
+/Student/uploads/student_profiles/*
+!/Student/uploads/student_profiles/.htaccess

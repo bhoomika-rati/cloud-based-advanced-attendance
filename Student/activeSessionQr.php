@@ -92,6 +92,7 @@ try {
         ? new \Endroid\QrCode\Writer\PngWriter()
         : new \Endroid\QrCode\Writer\SvgWriter();
     $responseSessions = [];
+    $publicBaseUrl = null;
     foreach ($sessions as $session) {
         $sessionId = (int)$session['id'];
         $sessionToken = qrAttendanceSessionToken($sessionId);
@@ -115,7 +116,10 @@ try {
             'expires_at' => $expiresAt->getTimestamp()
         ];
         if (!isset($knownSessionIds[$sessionId])) {
-            $attendanceUrl = attendanceWebsiteBaseUrl()
+            if ($publicBaseUrl === null) {
+                $publicBaseUrl = attendancePublicWebsiteBaseUrl();
+            }
+            $attendanceUrl = $publicBaseUrl
                 . '/index.php?attendance=1&token='
                 . rawurlencode($sessionToken);
             $response['qr_image'] = $writer

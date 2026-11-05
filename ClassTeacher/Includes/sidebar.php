@@ -1,4 +1,143 @@
- <ul class="navbar-nav sidebar sidebar-light accordion" id="accordionSidebar">
+<style>
+#accordionSidebar.aa-sidebar {
+    background: #192b49 !important;
+    background-image: none !important;
+    width: 250px;
+    min-width: 250px;
+    min-height: 100vh;
+    padding: 18px 14px;
+    box-shadow: 5px 0 24px rgba(15, 23, 42, .08);
+}
+
+#accordionSidebar.aa-sidebar .sidebar-brand {
+    background: transparent !important;
+    height: auto;
+    min-height: 74px;
+    margin-bottom: 24px;
+    justify-content: flex-start !important;
+    padding: 8px 12px;
+    white-space: normal;
+}
+
+#accordionSidebar.aa-sidebar .sidebar-brand-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: #2858d8;
+    color: #fff;
+    font-size: 21px;
+}
+
+#accordionSidebar.aa-sidebar .sidebar-brand-icon img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    border-radius: 6px;
+}
+
+#accordionSidebar.aa-sidebar .sidebar-brand-text {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -.3px;
+    margin-left: 10px !important;
+}
+
+#accordionSidebar.aa-sidebar .sidebar-divider {
+    border-top: 1px solid rgba(255,255,255,.12);
+    margin: 12px 5px;
+}
+
+#accordionSidebar.aa-sidebar .sidebar-heading {
+    color: #9eacc5;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    padding: 10px 12px 7px;
+    text-transform: uppercase;
+}
+
+#accordionSidebar.aa-sidebar .nav-item {
+    margin: 3px 0;
+}
+
+#accordionSidebar.aa-sidebar .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+    min-height: 46px;
+    border-radius: 9px;
+    color: #d5deed !important;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background .2s ease, color .2s ease;
+}
+
+#accordionSidebar.aa-sidebar .nav-link i {
+    width: 20px;
+    text-align: center;
+    color: #b9c8e2;
+    font-size: 16px;
+}
+
+#accordionSidebar.aa-sidebar .nav-link:hover {
+    background: rgba(255,255,255,.09);
+    color: #fff !important;
+}
+
+#accordionSidebar.aa-sidebar .nav-item.active > .nav-link,
+#accordionSidebar.aa-sidebar .nav-item > .nav-link[aria-expanded="true"] {
+    background: #2854cc !important;
+    color: #fff !important;
+    box-shadow: 0 5px 14px rgba(0,0,0,.12);
+}
+
+#accordionSidebar.aa-sidebar .nav-item.active > .nav-link i,
+#accordionSidebar.aa-sidebar .nav-link[aria-expanded="true"] i {
+    color: #fff;
+}
+
+#accordionSidebar.aa-sidebar .collapse-inner {
+    background: #213655 !important;
+    border-radius: 8px !important;
+    margin: 5px 0 8px;
+    padding: 8px !important;
+}
+
+#accordionSidebar.aa-sidebar .collapse-header {
+    color: #9eacc5 !important;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+#accordionSidebar.aa-sidebar .collapse-item {
+    color: #d5deed !important;
+    border-radius: 6px;
+    padding: 9px 10px;
+    font-size: 12px;
+}
+
+#accordionSidebar.aa-sidebar .collapse-item:hover,
+#accordionSidebar.aa-sidebar .collapse-item.active {
+    background: #2854cc !important;
+    color: #fff !important;
+}
+
+@media (max-width: 768px) {
+    #accordionSidebar.aa-sidebar {
+        width: 100%;
+        min-width: 0;
+        min-height: auto;
+    }
+}
+</style>
+
+ <ul class="navbar-nav sidebar sidebar-dark accordion aa-sidebar" id="accordionSidebar">
       <a class="sidebar-brand d-flex align-items-center bg-gradient-primary justify-content-center" href="index.php">
         <div class="sidebar-brand-icon" >
           <img src="../img/logo/attendly-mark.svg" alt="">
@@ -44,7 +183,6 @@
         <div id="collapseBootstrapcon" class="collapse" aria-labelledby="headingBootstrap" data-parent="#accordionSidebar">
           <div class="bg-white py-2 collapse-inner rounded">
             <h6 class="collapse-header">Manage Attendance</h6>
-            <a class="collapse-item" href="takeAttendance.php">Take Attendance</a>
             <a class="collapse-item" href="qrCodeAttendance.php">QR_Code Attendance</a>
             <a class="collapse-item" href="viewStudentAttendance.php">View Student Attendance</a>
             <a class="collapse-item" href="downloadRecord.php">Today's Report (xls)</a>

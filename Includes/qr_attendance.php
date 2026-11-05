@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/env.php';
+
 function qrAttendanceTimezone(): DateTimeZone
 {
     static $timezone;
@@ -24,11 +26,15 @@ function qrAttendanceSqlTime(DateTimeInterface $time): string
 
 function qrAttendanceTokenKey(): string
 {
-    $encodedKey = trim((string)getenv('QR_ATTENDANCE_TOKEN_KEY'));
+    $environment = strtolower(trim((string)(getenv('APP_ENV') ?: 'production')));
+    $keyVariable = $environment === 'development'
+        ? 'DEVELOPMENT_QR_ATTENDANCE_TOKEN_KEY'
+        : ($environment === 'staging' ? 'STAGING_QR_ATTENDANCE_TOKEN_KEY' : 'QR_ATTENDANCE_TOKEN_KEY');
+    $encodedKey = trim((string)getenv($keyVariable));
     $key = base64_decode($encodedKey, true);
     if ($key === false || strlen($key) !== 32) {
         throw new RuntimeException(
-            'Set QR_ATTENDANCE_TOKEN_KEY to a base64-encoded random 32-byte secret on the PHP server.'
+            'Set ' . $keyVariable . ' to a base64-encoded random 32-byte secret on the PHP server.'
         );
     }
 

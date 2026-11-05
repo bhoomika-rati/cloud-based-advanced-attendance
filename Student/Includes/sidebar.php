@@ -26,9 +26,6 @@ if ($currentPage === 'student_timetable.php'):
     </li>
     <hr class="sidebar-divider">
     <div class="sidebar-heading">Attendance</div>
-    <li class="nav-item <?= $currentPage === 'scanQr.php' ? 'active' : '' ?>">
-        <a class="nav-link" href="scanQr.php" aria-label="Scan QR Code" title="Scan QR Code"><i class="fas fa-qrcode"></i><span>Scan QR Code</span></a>
-    </li>
     <li class="nav-item <?= $currentPage === 'student_attendance.php' ? 'active' : '' ?>">
         <a class="nav-link" href="student_attendance.php" aria-label="My Attendance" title="My Attendance"><i class="fas fa-clipboard-list"></i><span>My Attendance</span></a>
     </li>

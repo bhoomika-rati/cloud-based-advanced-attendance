@@ -1,7 +1,243 @@
-<?php 
-error_reporting(0);
+<?php
 include '../Includes/dbcon.php';
 include '../Includes/session.php';
+date_default_timezone_set('Asia/Kolkata');
+
+function attendanceViewEscape($value): string
+{
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+}
+
+function attendanceViewValidDate(string $value): bool
+{
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+    return $date !== false && $date->format('Y-m-d') === $value;
+}
+
+$teacherId = filter_var($_SESSION['userId'] ?? null, FILTER_VALIDATE_INT);
+if (!$teacherId) {
+    http_response_code(403);
+    exit('A valid faculty account is required to view student attendance.');
+}
+
+$teacherEmail = $_SESSION['emailAddress'] ?? '';
+if (!is_string($teacherEmail) || $teacherEmail === '') {
+    http_response_code(403);
+    exit('Faculty access is required to view student attendance.');
+}
+
+$teacherCheck = $conn->prepare('SELECT Id FROM tblclassteacher WHERE Id = ? AND emailAddress = ?');
+if (!$teacherCheck) {
+    error_log('Faculty attendance view could not prepare faculty authorization lookup: ' . $conn->error);
+    http_response_code(500);
+    exit('Unable to verify faculty access.');
+}
+$teacherCheck->bind_param('is', $teacherId, $teacherEmail);
+if (!$teacherCheck->execute()) {
+    error_log('Faculty attendance view faculty authorization lookup failed: ' . $teacherCheck->error);
+    http_response_code(500);
+    exit('Unable to verify faculty access.');
+}
+$teacherResult = $teacherCheck->get_result();
+$isFaculty = $teacherResult->num_rows === 1;
+$teacherCheck->close();
+if (!$isFaculty) {
+    http_response_code(403);
+    exit('Faculty access is required to view student attendance.');
+}
+
+$allowedClassArmIds = [];
+$assignmentStmt = $conn->prepare(
+    'SELECT DISTINCT ca.Id
+     FROM tblclassteacher_classarms assigned
+     INNER JOIN tblclassarms ca ON ca.Id = assigned.classarm_Id
+     WHERE assigned.classteacher_Id = ?'
+);
+if (!$assignmentStmt) {
+    error_log('Faculty attendance view could not prepare class assignment lookup: ' . $conn->error);
+    http_response_code(500);
+    exit('Unable to load faculty class assignments.');
+}
+$assignmentStmt->bind_param('i', $teacherId);
+if (!$assignmentStmt->execute()) {
+    error_log('Faculty attendance view class assignment lookup failed: ' . $assignmentStmt->error);
+    http_response_code(500);
+    exit('Unable to load faculty class assignments.');
+}
+$assignmentResult = $assignmentStmt->get_result();
+while ($assignment = $assignmentResult->fetch_assoc()) {
+    $allowedClassArmIds[] = (int)$assignment['Id'];
+}
+$assignmentStmt->close();
+
+if (!$allowedClassArmIds) {
+    $fallbackStmt = $conn->prepare(
+        'SELECT ct.classId, ct.classArmId, ca.Id AS validArmId
+         FROM tblclassteacher ct
+         INNER JOIN tblclassarms ca ON ca.Id = ct.classArmId AND ca.classId = ct.classId
+         WHERE ct.Id = ?'
+    );
+    if (!$fallbackStmt) {
+        error_log('Faculty attendance view could not prepare legacy class assignment lookup: ' . $conn->error);
+        http_response_code(500);
+        exit('Unable to load faculty class assignments.');
+    }
+    $fallbackStmt->bind_param('i', $teacherId);
+    if (!$fallbackStmt->execute()) {
+        error_log('Faculty attendance view legacy assignment lookup failed: ' . $fallbackStmt->error);
+        http_response_code(500);
+        exit('Unable to load faculty class assignments.');
+    }
+    $fallbackResult = $fallbackStmt->get_result();
+    while ($assignment = $fallbackResult->fetch_assoc()) {
+        $allowedClassArmIds[] = (int)$assignment['validArmId'];
+    }
+    $fallbackStmt->close();
+}
+
+$statusMsg = '';
+$students = [];
+$attendanceRows = [];
+$selectedStudentId = isset($_GET['student_id']) ? filter_var($_GET['student_id'], FILTER_VALIDATE_INT) : 0;
+$attendanceType = isset($_GET['attendance_type']) && is_string($_GET['attendance_type'])
+    ? $_GET['attendance_type']
+    : 'all';
+$specificDate = isset($_GET['specific_date']) && is_string($_GET['specific_date'])
+    ? trim($_GET['specific_date'])
+    : '';
+$fromDate = isset($_GET['from_date']) && is_string($_GET['from_date'])
+    ? trim($_GET['from_date'])
+    : '';
+$toDate = isset($_GET['to_date']) && is_string($_GET['to_date'])
+    ? trim($_GET['to_date'])
+    : '';
+$hasSearched = isset($_GET['view']);
+
+if ($allowedClassArmIds) {
+    $armPlaceholders = implode(',', array_fill(0, count($allowedClassArmIds), '?'));
+    $studentSql = "
+        SELECT student.Id, student.firstName, student.lastName, student.admissionNumber
+        FROM tblstudents student
+        INNER JOIN tblclassarms arm
+            ON arm.Id = student.classArmId AND arm.classId = student.classId
+        WHERE student.classArmId IN ({$armPlaceholders})
+        ORDER BY student.firstName ASC, student.lastName ASC, student.admissionNumber ASC
+    ";
+    $studentStmt = $conn->prepare($studentSql);
+    if (!$studentStmt) {
+        error_log('Faculty attendance view could not prepare student list: ' . $conn->error);
+        http_response_code(500);
+        exit('Unable to load students assigned to your classes.');
+    }
+    $studentTypes = str_repeat('i', count($allowedClassArmIds));
+    $studentStmt->bind_param($studentTypes, ...$allowedClassArmIds);
+    if (!$studentStmt->execute()) {
+        error_log('Faculty attendance view student list query failed: ' . $studentStmt->error);
+        http_response_code(500);
+        exit('Unable to load students assigned to your classes.');
+    }
+    $studentResult = $studentStmt->get_result();
+    while ($student = $studentResult->fetch_assoc()) {
+        $students[] = $student;
+    }
+    $studentStmt->close();
+}
+
+if ($hasSearched) {
+    $validTypes = ['all', 'today', 'specific', 'range'];
+    if (!in_array($attendanceType, $validTypes, true)) {
+        $statusMsg = 'Select a valid attendance type.';
+    } elseif (!$selectedStudentId || !array_filter($students, static function ($student) use ($selectedStudentId) {
+        return (int)$student['Id'] === (int)$selectedStudentId;
+    })) {
+        $statusMsg = 'Select a student assigned to your classes.';
+    } elseif ($attendanceType === 'specific' && !attendanceViewValidDate($specificDate)) {
+        $statusMsg = 'Select a valid date to view attendance.';
+    } elseif ($attendanceType === 'range'
+        && (!attendanceViewValidDate($fromDate) || !attendanceViewValidDate($toDate) || $fromDate > $toDate)) {
+        $statusMsg = 'Select a valid date range. The From Date must not be later than the To Date.';
+    } else {
+        $dateExpression = "COALESCE(DATE(qrRecord.marked_at), DATE(attendance.dateTimeTaken), qrSession.attendance_date)";
+        $whereClauses = [
+            'student.Id = ?',
+            'attendance.classArmId IN (' . $armPlaceholders . ')'
+        ];
+        $queryParams = array_merge([(int)$selectedStudentId], $allowedClassArmIds);
+        $queryTypes = 'i' . str_repeat('i', count($allowedClassArmIds));
+
+        if ($attendanceType === 'today') {
+            $today = date('Y-m-d');
+            $whereClauses[] = "{$dateExpression} >= ? AND {$dateExpression} < DATE_ADD(?, INTERVAL 1 DAY)";
+            $queryParams[] = $today;
+            $queryParams[] = $today;
+            $queryTypes .= 'ss';
+        } elseif ($attendanceType === 'specific') {
+            $whereClauses[] = "{$dateExpression} >= ? AND {$dateExpression} < DATE_ADD(?, INTERVAL 1 DAY)";
+            $queryParams[] = $specificDate;
+            $queryParams[] = $specificDate;
+            $queryTypes .= 'ss';
+        } elseif ($attendanceType === 'range') {
+            $whereClauses[] = "{$dateExpression} >= ? AND {$dateExpression} < DATE_ADD(?, INTERVAL 1 DAY)";
+            $queryParams[] = $fromDate;
+            $queryParams[] = $toDate;
+            $queryTypes .= 'ss';
+        }
+
+        $attendanceSql = "
+            SELECT student.firstName, student.lastName, student.admissionNumber,
+                   classInfo.className, arm.classArmName, academicSession.sessionName,
+                   term.termName,
+                   CASE
+                       WHEN qrRecord.status = 'present' THEN 'Present'
+                       WHEN qrRecord.status = 'absent' THEN 'Absent'
+                       WHEN LOWER(attendance.status) IN ('1', 'absent') THEN 'Absent'
+                       WHEN LOWER(attendance.status) IN ('0', 'present') THEN 'Present'
+                       ELSE attendance.status
+                   END AS attendance_status,
+                   {$dateExpression} AS attendance_date,
+                   CASE
+                       WHEN qrRecord.status = 'present' AND qrRecord.marked_at IS NOT NULL
+                           THEN TIME(qrRecord.marked_at)
+                       WHEN LOWER(attendance.status) IN ('0', 'present')
+                           AND CHAR_LENGTH(attendance.dateTimeTaken) > 10
+                           THEN TIME(STR_TO_DATE(attendance.dateTimeTaken, '%Y-%m-%d %H:%i:%s'))
+                       ELSE NULL
+                   END AS check_in_time
+            FROM tblattendance attendance
+            INNER JOIN tblstudents student ON student.admissionNumber = attendance.admissionNo
+            LEFT JOIN tblclass classInfo ON classInfo.Id = attendance.classId
+            LEFT JOIN tblclassarms arm
+                ON arm.Id = attendance.classArmId AND arm.classId = attendance.classId
+            LEFT JOIN tblsessionterm academicSession ON academicSession.Id = attendance.sessionTermId
+            LEFT JOIN tblterm term ON term.Id = academicSession.termId
+            LEFT JOIN qr_attendance_sessions qrSession ON qrSession.id = attendance.qr_session_id
+            LEFT JOIN qr_attendance_records qrRecord
+                ON qrRecord.qr_session_id = attendance.qr_session_id
+               AND qrRecord.student_id = student.Id
+            WHERE " . implode(' AND ', $whereClauses) . "
+            ORDER BY {$dateExpression} DESC, attendance.Id DESC
+        ";
+        $attendanceStmt = $conn->prepare($attendanceSql);
+        if (!$attendanceStmt) {
+            error_log('Faculty attendance view query could not be prepared: ' . $conn->error);
+            http_response_code(500);
+            $statusMsg = 'Unable to load attendance records right now.';
+        } else {
+            $attendanceStmt->bind_param($queryTypes, ...$queryParams);
+            if (!$attendanceStmt->execute()) {
+                error_log('Faculty attendance view query failed: ' . $attendanceStmt->error);
+                http_response_code(500);
+                $statusMsg = 'Unable to load attendance records right now.';
+            } else {
+                $attendanceResult = $attendanceStmt->get_result();
+                while ($row = $attendanceResult->fetch_assoc()) {
+                    $attendanceRows[] = $row;
+                }
+            }
+            $attendanceStmt->close();
+        }
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -18,28 +254,6 @@ include '../Includes/session.php';
   <link href="../vendore/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
   <link href="../vendore/bootstrap/css/bootstrap.min.css" rel="stylesheet" type="text/css">
   <link href="css/ruang-admin.min.css" rel="stylesheet">
-
-<script>
-    function typeDropDown(str) {
-    if (str == "") {
-        document.getElementById("txtHint").innerHTML = "";
-        return;
-    } else { 
-        if (window.XMLHttpRequest) {
-            xmlhttp = new XMLHttpRequest();
-        } else {
-            xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-        }
-        xmlhttp.onreadystatechange = function() {
-            if (this.readyState == 4 && this.status == 200) {
-                document.getElementById("txtHint").innerHTML = this.responseText;
-            }
-        };
-        xmlhttp.open("GET","ajaxCallTypes.php?tid="+str,true);
-        xmlhttp.send();
-    }
-}
-</script>
 
 </head>
 
@@ -66,189 +280,135 @@ include '../Includes/session.php';
 
           <div class="row">
             <div class="col-lg-12">
-              <!-- Form Basic -->
               <div class="card mb-4">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                  <h6 class="m-0 font-weight-bold text-primary">View Student Attendance</h6>
-                    <?php echo $statusMsg; ?>
+                <div class="card-header py-3">
+                  <h6 class="m-0 font-weight-bold text-primary">Search Student Attendance</h6>
                 </div>
                 <div class="card-body">
-                  <form method="post">
-                    <div class="form-group row mb-3">
-                        <div class="col-xl-6">
-                        <label class="form-control-label">Select Student<span class="text-danger ml-2">*</span></label>
-                        <?php
-                        $qry= "SELECT * FROM tblstudents where classId = '$_SESSION[classId]' and classArmId = '$_SESSION[classArmId]' ORDER BY firstName ASC";
-                        $result = $conn->query($qry);
-                        $num = $result->num_rows;		
-                        if ($num > 0){
-                          echo ' <select required name="admissionNumber" class="form-control mb-3">';
-                          echo'<option value="">--Select Student--</option>';
-                          while ($rows = $result->fetch_assoc()){
-                          echo'<option value="'.$rows['admissionNumber'].'" >'.$rows['firstName'].' '.$rows['lastName'].'</option>';
-                              }
-                                  echo '</select>';
-                              }
-                            ?>  
-                        </div>
-                        <div class="col-xl-6">
-                        <label class="form-control-label">Type<span class="text-danger ml-2">*</span></label>
-                          <select required name="type" onchange="typeDropDown(this.value)" class="form-control mb-3">
-                          <option value="">--Select--</option>
-                          <option value="1" >All</option>
-                          <option value="2" >By Single Date</option>
-                          <option value="3" >By Date Range</option>
+                  <?php if ($statusMsg !== ''): ?>
+                    <div class="alert alert-warning" role="alert"><?php echo attendanceViewEscape($statusMsg); ?></div>
+                  <?php endif; ?>
+                  <?php if (!$allowedClassArmIds): ?>
+                    <div class="alert alert-warning" role="alert">No class arms are assigned to your faculty account.</div>
+                  <?php elseif (!$students): ?>
+                    <div class="alert alert-info" role="alert">No students are currently assigned to your class arms.</div>
+                  <?php endif; ?>
+                  <form method="get" id="attendance-filter-form">
+                    <input type="hidden" name="view" value="1">
+                    <div class="form-row">
+                      <div class="form-group col-lg-6">
+                        <label for="student_id">Select Student <span class="text-danger">*</span></label>
+                        <select required name="student_id" id="student_id" class="form-control">
+                          <option value="">-- Select Student --</option>
+                          <?php foreach ($students as $student): ?>
+                            <option value="<?php echo (int)$student['Id']; ?>"
+                                <?php echo (int)$selectedStudentId === (int)$student['Id'] ? 'selected' : ''; ?>>
+                              <?php echo attendanceViewEscape($student['firstName'] . ' ' . $student['lastName'] . ' (' . $student['admissionNumber'] . ')'); ?>
+                            </option>
+                          <?php endforeach; ?>
                         </select>
-                        </div>
+                      </div>
+                      <div class="form-group col-lg-6">
+                        <label for="attendance_type">Attendance Type <span class="text-danger">*</span></label>
+                        <select required name="attendance_type" id="attendance_type" class="form-control">
+                          <option value="all" <?php echo $attendanceType === 'all' ? 'selected' : ''; ?>>All Attendance</option>
+                          <option value="today" <?php echo $attendanceType === 'today' ? 'selected' : ''; ?>>Today's Attendance</option>
+                          <option value="specific" <?php echo $attendanceType === 'specific' ? 'selected' : ''; ?>>Specific Date</option>
+                          <option value="range" <?php echo $attendanceType === 'range' ? 'selected' : ''; ?>>Date Range</option>
+                        </select>
+                      </div>
                     </div>
-                      <?php
-                        echo"<div id='txtHint'></div>";
-                      ?>
-                    <button type="submit" name="view" class="btn btn-primary">View Attendance</button>
+                    <div class="form-row">
+                      <div class="form-group col-md-6" id="specific-date-group">
+                        <label for="specific_date">Date</label>
+                        <input type="date" name="specific_date" id="specific_date" class="form-control"
+                            value="<?php echo attendanceViewEscape($specificDate); ?>">
+                      </div>
+                      <div class="form-group col-md-6" id="from-date-group">
+                        <label for="from_date">From Date</label>
+                        <input type="date" name="from_date" id="from_date" class="form-control"
+                            value="<?php echo attendanceViewEscape($fromDate); ?>">
+                      </div>
+                      <div class="form-group col-md-6" id="to-date-group">
+                        <label for="to_date">To Date</label>
+                        <input type="date" name="to_date" id="to_date" class="form-control"
+                            value="<?php echo attendanceViewEscape($toDate); ?>">
+                      </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" <?php echo !$students ? 'disabled' : ''; ?>>
+                      <i class="fas fa-search mr-1"></i> View Attendance
+                    </button>
                   </form>
                 </div>
               </div>
 
-              <!-- Input Group -->
               <div class="row">
-              <div class="col-lg-12">
-              <div class="card mb-4">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                  <h6 class="m-0 font-weight-bold text-primary">Class Attendance</h6>
-                </div>
-                <div class="table-responsive p-3">
-                  <table class="table align-items-center table-flush table-hover" id="dataTableHover">
-                    <thead class="thead-light">
-                      <tr>
-                        <th>First Name</th>
-                        <th>Last Name</th>
-                        <th>Admission No</th>
-                        <th>Class</th>
-                        <th>Class Arm</th>
-                        <th>Session</th>
-                        <th>Term</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                        <th>Start Time</th>
-                        <th>End Time</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-
-                  <?php
-
-                    if(isset($_POST['view'])){
-
-                       $admissionNumber =  $_POST['admissionNumber'];
-                       $type =  $_POST['type'];
-
-                       if($type == "1"){ //All Attendance
-
-                        $query = "SELECT tblattendance.Id,tblattendance.status,tblattendance.dateTimeTaken,tblclass.className,
-                        tblclassarms.classArmName,tblsessionterm.sessionName,tblsessionterm.termId,tblterm.termName,
-                        tblstudents.firstName,tblstudents.lastName,tblstudents.admissionNumber,
-                        tblsessionterm.startTime, tblsessionterm.endTime
-                        FROM tblattendance
-                        INNER JOIN tblclass ON tblclass.Id = tblattendance.classId
-                        INNER JOIN tblclassarms ON tblclassarms.Id = tblattendance.classArmId
-                        INNER JOIN tblsessionterm ON tblsessionterm.Id = tblattendance.sessionTermId
-                        INNER JOIN tblterm ON tblterm.Id = tblsessionterm.termId
-                        INNER JOIN tblstudents ON tblstudents.admissionNumber = tblattendance.admissionNo
-                        WHERE tblattendance.admissionNo = '$admissionNumber' AND tblattendance.classId = '$_SESSION[classId]' AND tblattendance.classArmId = '$_SESSION[classArmId]'";
-
-                       }
-                       if($type == "2"){ //Single Date Attendance
-
-                        $singleDate =  $_POST['singleDate'];
-
-                         $query = "SELECT tblattendance.Id,tblattendance.status,tblattendance.dateTimeTaken,tblclass.className,
-                        tblclassarms.classArmName,tblsessionterm.sessionName,tblsessionterm.termId,tblterm.termName,
-                        tblstudents.firstName,tblstudents.lastName,tblstudents.admissionNumber,
-                        tblsessionterm.startTime, tblsessionterm.endTime
-                        FROM tblattendance
-                        INNER JOIN tblclass ON tblclass.Id = tblattendance.classId
-                        INNER JOIN tblclassarms ON tblclassarms.Id = tblattendance.classArmId
-                        INNER JOIN tblsessionterm ON tblsessionterm.Id = tblattendance.sessionTermId
-                        INNER JOIN tblterm ON tblterm.Id = tblsessionterm.termId
-                        INNER JOIN tblstudents ON tblstudents.admissionNumber = tblattendance.admissionNo
-                        WHERE tblattendance.dateTimeTaken = '$singleDate' AND tblattendance.admissionNo = '$admissionNumber' AND tblattendance.classId = '$_SESSION[classId]' AND tblattendance.classArmId = '$_SESSION[classArmId]'";
-
-                       }
-                       if($type == "3"){ //Date Range Attendance
-
-                         $fromDate =  $_POST['fromDate'];
-                         $toDate =  $_POST['toDate'];
-
-                         $query = "SELECT tblattendance.Id,tblattendance.status,tblattendance.dateTimeTaken,tblclass.className,
-                        tblclassarms.classArmName,tblsessionterm.sessionName,tblsessionterm.termId,tblterm.termName,
-                        tblstudents.firstName,tblstudents.lastName,tblstudents.admissionNumber,
-                        tblsessionterm.startTime, tblsessionterm.endTime
-                        FROM tblattendance
-                        INNER JOIN tblclass ON tblclass.Id = tblattendance.classId
-                        INNER JOIN tblclassarms ON tblclassarms.Id = tblattendance.classArmId
-                        INNER JOIN tblsessionterm ON tblsessionterm.Id = tblattendance.sessionTermId
-                        INNER JOIN tblterm ON tblterm.Id = tblsessionterm.termId
-                        INNER JOIN tblstudents ON tblstudents.admissionNumber = tblattendance.admissionNo
-                        WHERE tblattendance.dateTimeTaken BETWEEN '$fromDate' AND '$toDate' AND tblattendance.admissionNo = '$admissionNumber' AND tblattendance.classId = '$_SESSION[classId]' AND tblattendance.classArmId = '$_SESSION[classArmId]'";
-                        
-                       }
-
-                      $rs = $conn->query($query);
-                      $num = $rs->num_rows;
-                      $status="";
-                      $totalPresent = 0;
-                      $totalAbsent = 0;
-                      if($num > 0)
-                      { 
-                        while ($rows = $rs->fetch_assoc())
-                          {
-                              if($rows['status'] == '1') {
-                                  $status = "Present"; 
-                                  $colour="#00FF00";
-                                  $totalPresent++;
-                              } else {
-                                  $status = "Absent";
-                                  $colour="#FF0000";
-                                  $totalAbsent++;
-                              }
-
-                            echo"
+                <div class="col-lg-12">
+                  <div class="card mb-4">
+                    <div class="card-header py-3">
+                      <h6 class="m-0 font-weight-bold text-primary">Student Attendance Records</h6>
+                    </div>
+                    <?php if ($hasSearched && $statusMsg === ''): ?>
+                      <?php if ($attendanceRows): ?>
+                        <div class="table-responsive p-3">
+                          <table class="table table-bordered table-hover mb-0">
+                            <thead class="thead-light">
                               <tr>
-                                <td>".$rows['firstName']."</td>
-                                <td>".$rows['lastName']."</td>
-                                <td>".$rows['admissionNumber']."</td>
-                                <td>".$rows['className']."</td>
-                                <td>".$rows['classArmName']."</td>
-                                <td>".$rows['sessionName']."</td>
-                                <td>".$rows['termName']."</td>
-                                <td style='background-color:".$colour."'>".$status."</td>
-                                <td>".$rows['dateTimeTaken']."</td>
-                                <td>".$rows['startTime']."</td>
-                                <td>".$rows['endTime']."</td>
-                              </tr>";
-                          }
-                      }
-                      else
-                      {
-                           echo   
-                           "<div class='alert alert-danger' role='alert'>
-                            No Record Found!
-                            </div>";
-                      }
-
-                      echo "<div class='mt-4'>
-                              <h5>Total Present: $totalPresent</h5>
-                              <h5>Total Absent: $totalAbsent</h5>
-                            </div>";
-                    }
-                      ?>
-                    </tbody>
-                  </table>
+                                <th>First Name</th>
+                                <th>Last Name</th>
+                                <th>Admission Number</th>
+                                <th>Class</th>
+                                <th>Class Arm</th>
+                                <th>Session</th>
+                                <th>Term</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th>Start Time</th>
+                                <th>End Time</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <?php foreach ($attendanceRows as $row): ?>
+                                <?php
+                                  $rowDate = $row['attendance_date'] ? date('d M Y', strtotime($row['attendance_date'])) : 'Not Recorded';
+                                  $rowStartTime = $row['check_in_time'] ? date('h:i:s A', strtotime($row['check_in_time'])) : 'Not Recorded';
+                                  $rowStatus = $row['attendance_status'] !== null && $row['attendance_status'] !== ''
+                                      ? $row['attendance_status']
+                                      : 'Not Recorded';
+                                  $statusClass = strtolower($rowStatus) === 'present'
+                                      ? 'badge-success'
+                                      : (strtolower($rowStatus) === 'absent' ? 'badge-danger' : 'badge-secondary');
+                                ?>
+                                <tr>
+                                  <td><?php echo attendanceViewEscape($row['firstName']); ?></td>
+                                  <td><?php echo attendanceViewEscape($row['lastName']); ?></td>
+                                  <td><?php echo attendanceViewEscape($row['admissionNumber']); ?></td>
+                                  <td><?php echo attendanceViewEscape($row['className'] ?? 'Not Recorded'); ?></td>
+                                  <td><?php echo attendanceViewEscape($row['classArmName'] ?? 'Not Recorded'); ?></td>
+                                  <td><?php echo attendanceViewEscape($row['sessionName'] ?? 'Not Recorded'); ?></td>
+                                  <td><?php echo attendanceViewEscape($row['termName'] ?? 'Not Recorded'); ?></td>
+                                  <td><span class="badge <?php echo $statusClass; ?>"><?php echo attendanceViewEscape($rowStatus); ?></span></td>
+                                  <td><?php echo attendanceViewEscape($rowDate); ?></td>
+                                  <td><?php echo attendanceViewEscape($rowStartTime); ?></td>
+                                  <td>Not Checked Out</td>
+                                </tr>
+                              <?php endforeach; ?>
+                            </tbody>
+                          </table>
+                        </div>
+                      <?php else: ?>
+                        <div class="card-body">
+                          <div class="alert alert-info mb-0" role="status">No attendance records found for the selected filters.</div>
+                        </div>
+                      <?php endif; ?>
+                    <?php else: ?>
+                      <div class="card-body">
+                        <p class="text-muted mb-0">Select a student and attendance period, then choose View Attendance.</p>
+                      </div>
+                    <?php endif; ?>
+                  </div>
                 </div>
               </div>
-            </div>
-            </div>
-          </div>
           <!--Row-->
 
         </div>
@@ -269,17 +429,32 @@ include '../Includes/session.php';
   <script src="../vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script src="../vendor/jquery-easing/jquery.easing.min.js"></script>
   <script src="js/ruang-admin.min.js"></script>
-   <!-- Page level plugins -->
-  <script src="../vendor/datatables/jquery.dataTables.min.js"></script>
-  <script src="../vendor/datatables/dataTables.bootstrap4.min.js"></script>
+   <script>
+     (function () {
+       var typeSelect = document.getElementById('attendance_type');
+       var specificGroup = document.getElementById('specific-date-group');
+       var fromGroup = document.getElementById('from-date-group');
+       var toGroup = document.getElementById('to-date-group');
+       var specificDate = document.getElementById('specific_date');
+       var fromDate = document.getElementById('from_date');
+       var toDate = document.getElementById('to_date');
 
-  <!-- Page level custom scripts -->
-  <script>
-    $(document).ready(function () {
-      $('#dataTable').DataTable(); // ID From dataTable 
-      $('#dataTableHover').DataTable(); // ID From dataTable with Hover
-    });
-  </script>
+       function updateDateFields() {
+         var type = typeSelect.value;
+         var showSpecific = type === 'specific';
+         var showRange = type === 'range';
+         specificGroup.hidden = !showSpecific;
+         fromGroup.hidden = !showRange;
+         toGroup.hidden = !showRange;
+         specificDate.required = showSpecific;
+         fromDate.required = showRange;
+         toDate.required = showRange;
+       }
+
+       typeSelect.addEventListener('change', updateDateFields);
+       updateDateFields();
+     }());
+   </script>
 </body>
 
 </html>

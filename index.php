@@ -16,6 +16,7 @@ if ($isAttendanceLanding) {
         header('Location: Student/markAttendance.php?token=' . rawurlencode(strtolower($attendanceToken)));
         exit;
     }
+    $loginRole = 'Student';
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET'

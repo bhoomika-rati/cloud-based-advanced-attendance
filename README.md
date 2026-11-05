@@ -242,7 +242,7 @@ The system uses 14 main tables:
 ## 🚀 Installation
 
 ### Prerequisites
-- PHP 7.4 or higher
+- PHP 8.x
 - MySQL 5.7 or higher
 - Apache/Nginx web server
 - Modern web browser
@@ -266,15 +266,13 @@ mysql -u username -p attendancemsystem < "DATABASE FILE/repair_academic_schema.s
 - To populate the admin catalog with 50 sample modules and 100 sample courses, optionally import `DATABASE FILE/sample_catalog_seed.sql` after the repair scripts. It can be re-run safely and does not replace existing entries.
 - To create the sample undergraduate/postgraduate cohorts, run `DATABASE FILE/sample_academic_classes.sql` after the repair scripts. It renames existing `UG`/`PG` rows in place and safely creates 15 generic cohort names: eight UG and seven PG.
 
-3. **Configure Database Connection**
-- Edit the database configuration file with your credentials:
-```php
-// config/database.php
-define('DB_HOST', 'localhost');
-define('DB_USER', 'your_username');
-define('DB_PASS', 'your_password');
-define('DB_NAME', 'attendancemsystem');
+3. **Configure the environment**
+- Copy `.env.example` to `.env` and set your database credentials and `DEVELOPMENT_WEBSITE_BASE_URL` to the URL used to open the local project. The local `.env` file is ignored by Git and denied by the included Apache rule; server-provided environment variables take precedence.
+- Generate a QR signing key for each environment and keep each key private and unchanged for that environment:
+```bash
+php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"
 ```
+- Put the local generated value in `DEVELOPMENT_QR_ATTENDANCE_TOKEN_KEY`. Use `QR_ATTENDANCE_TOKEN_KEY` for production; never use the example placeholder as a real key.
 
 4. **Set Permissions**
 ```bash
@@ -283,8 +281,9 @@ chmod -R 755 logs/
 ```
 
 5. **Start the Application**
-- Place the project in your web server's document root
-- Access via browser: `http://localhost/attendance-management-system`
+- Place the project in your web server's document root and start Apache and MySQL.
+- Install the locked PHP dependencies with `composer install` if `vendor/` is not present.
+- Open the exact `DEVELOPMENT_WEBSITE_BASE_URL` configured in `.env`. For a project folder named `Attendance-Management-System-master` under XAMPP `htdocs`, the default is `http://localhost/Attendance-Management-System-master`.
 
 ## 👥 Default Login Credentials
 
@@ -313,20 +312,54 @@ Announcements appear for the student's class when published records are present 
 ### QR Code Attendance
 Teachers create a subject-specific attendance session from **QR_Code Attendance**. The teacher's dashboard generates one shared QR code for each session, and students assigned to that class can view every active session, its code, details, and countdown on their dashboards. Each class and subject can have one active session at a time; different subjects may run concurrently. The QR is valid for exactly 10 minutes from session creation. Scanning the faculty QR opens this website's home page in the phone browser—no mobile app is needed. If the student is not signed in, the existing Student sign-in flow preserves the scanned session and records attendance automatically after successful authentication and GPS verification; a signed-in student is checked in automatically. Students do not need to scan a second time. The server verifies the active session, current class assignment, roster membership, and configured college geofence; database uniqueness prevents a second attendance entry. The server records attendance date and time, while the QR session remains linked to its subject and faculty. The faculty dashboard refreshes the roster and total/present/absent/not-marked/location-verified counts automatically, and the attendance also appears in the existing Admin reports and Student history. A teacher may close a session early; remaining students are then marked absent.
 
-The QR URL is generated from the server's `WEBSITE_BASE_URL` environment variable—not the browser host header. For an Internet-accessible deployment, set it to the public HTTPS project URL, including its subdirectory if applicable. For XAMPP, add this line to Apache's configuration (for example, `C:\xampp\apache\conf\extra\httpd-xampp.conf`) and restart Apache:
+The QR URL is generated from the server-side `WEBSITE_BASE_URL`, not the browser host header. The PHP pages and attendance endpoints use the same origin; there is no separate frontend or API server to configure.
 
-```apache
-SetEnv WEBSITE_BASE_URL "https://attendance.example.edu/Attendance-Management-System-master"
-SetEnv QR_ATTENDANCE_TOKEN_KEY "BASE64_ENCODED_RANDOM_32_BYTE_SECRET"
+#### Local XAMPP test
+
+1. In PowerShell, copy the template with `Copy-Item .env.example .env`. Keep `APP_ENV=development`, set `DEVELOPMENT_WEBSITE_BASE_URL` to the exact URL opened in your browser, and configure `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD` for local MySQL. The local `.env` is ignored by Git and blocked by the included Apache rule; server environment variables take precedence.
+2. Generate `DEVELOPMENT_QR_ATTENDANCE_TOKEN_KEY` with `C:\xampp\php\php.exe -r "echo base64_encode(random_bytes(32)), PHP_EOL;"`. Put the generated value in `.env`; do not use the example placeholder or commit your key. Development-specific URLs and signing keys keep local QR codes independent from any pre-existing Apache production/tunnel settings.
+3. Start Apache and MySQL in XAMPP. Import `attendancemsystem.sql`, then run `repair_schema.sql`, `repair_academic_schema.sql`, `migration_v2.sql`, and `qr_attendance_schema.sql` from `DATABASE FILE` in that order. Run `composer install` from the project directory if `vendor/` is missing.
+4. Open the configured `DEVELOPMENT_WEBSITE_BASE_URL` in Chrome or another current browser. `http://localhost/...` is a secure browser context for camera/location APIs on the same computer. A QR link using localhost only opens on the computer running XAMPP; on a phone, localhost means the phone itself.
+5. In the local database, create a class/group, subject, teacher, student, academic session, and timetable. In Admin, open **QR & GPS Attendance → College Location Settings** and set the local database coordinates to the test device's actual location with a suitable radius. Do not disable the server-side location check or use these settings in production.
+6. Sign in as a teacher, create a QR attendance session, and display its QR code. In another browser profile on the same computer, open the Student **Scan attendance QR** page and scan the displayed QR, or scan with a phone camera only if the generated link is reachable on the phone. Sign in as a student enrolled in that session and allow precise location. Confirm the success page and verify the class roster/Student attendance history.
+7. Test a malformed token by changing the token in a test URL; it must be rejected. Scan/submit again after successful check-in; the duplicate must be rejected. Expired and closed sessions are rejected too.
+
+The in-page scanner requires a browser supporting `BarcodeDetector` and camera permission; use the phone's built-in camera if that API is unavailable. Browsers generally allow camera/location on localhost, but not on an ordinary HTTP LAN address. To test from a phone on the same Wi-Fi, set `DEVELOPMENT_WEBSITE_BASE_URL` to the computer's private LAN IP and serve it over HTTPS with a certificate trusted by that phone, or set it to a trusted HTTPS development tunnel. Generate a new QR after changing it. Mobile data cannot reach XAMPP directly without a reachable HTTPS tunnel.
+
+#### Test QR attendance from mobile data (temporary Cloudflare Quick Tunnel)
+
+To let students reach the local XAMPP app over their own mobile data, first start Apache and MySQL in XAMPP. Install `cloudflared` or provide its executable path, then run this from PowerShell in the project directory:
+
+```powershell
+.\scripts\startAttendanceQuickTunnel.ps1 -CloudflaredPath "C:\path\to\cloudflared.exe"
 ```
 
-Replace the URL with the real domain and deployed project path. Generate the token key once using a cryptographically secure random 32-byte value encoded as Base64 (for example, PHP's `base64_encode(random_bytes(32))`). Keep it private, outside source control, and unchanged across restarts and PHP servers; changing it invalidates current session QR codes. For same-Wi-Fi development, set `WEBSITE_BASE_URL` to the computer's actual private IPv4 address and project path, such as `http://192.168.1.25/Attendance-Management-System-master`. HTTP is accepted only for RFC1918 private IPv4 addresses. Apache must listen on the network interface, Windows Firewall must allow inbound TCP port 80 from the local Wi-Fi subnet, and the phone must be on that same network. Reserve the computer's address in DHCP or update this setting and generate a new QR when the address changes. LAN HTTP is for page access only: Android browser geolocation requires a trusted HTTPS origin, so GPS attendance needs a valid HTTPS website; XAMPP's default self-signed certificate is not sufficient. For mobile data or other networks, deploy this project on a real public HTTPS host with a domain and configure that URL—do not use localhost or a private IP. Hosted Apache control panels may provide environment-variable settings; configure both variables there.
+The script starts a temporary HTTPS Quick Tunnel to `http://localhost:80`, updates only `DEVELOPMENT_WEBSITE_BASE_URL` in the ignored local `.env`, and checks that the project responds through the public URL. Keep its PowerShell window open and refresh the Faculty QR Attendance page to generate a fresh code. QR generation verifies the configured HTTPS host is public and reachable; if the tunnel has stopped or the URL is stale, it refuses to generate the QR and asks you to restart the tunnel. Scan with Android Chrome while Wi-Fi is off to test mobile-data access.
 
-QR scans open the public home page and retain the scanned session through Student sign-in. On first setup, run the additive `DATABASE FILE/qr_attendance_schema.sql` migration, then sign in as Admin and open **QR & GPS Attendance → College Location Settings**. Enter the college's real latitude, longitude, and permitted radius; no sample location or radius is pre-filled, and attendance check-in remains disabled until all three values are configured. Students must allow precise browser location on the HTTPS site. The server validates coordinate ranges and reported accuracy (100 metres or better), calculates the Haversine distance, and records the verified location and distance with the session attendance. This is a location-based check, not protection against GPS spoofing.
+Quick Tunnels have no uptime guarantee and their hostname changes when restarted. The script updates `.env` each time, so refresh the faculty QR after every restart. They are for temporary development only. Since the tunnel forwards to Apache on port 80, any site/path served by that Apache instance may be reachable through the tunnel; avoid exposing unrelated projects or real data during the test. Do not open the Apache port directly on your router or firewall. A stable hostname requires a Cloudflare account, a domain added to that account, and a named tunnel configured with that hostname; those credentials/domain details are not present in this project.
 
-To deploy, upload the existing project (including `vendor/`) to PHP 8.x hosting, create a MariaDB/MySQL database, import the project SQL and run `DATABASE FILE/qr_attendance_schema.sql`, configure the database credentials in `Includes/dbcon.php`, configure `WEBSITE_BASE_URL` and `QR_ATTENDANCE_TOKEN_KEY`, and enable HTTPS. Keep Apache/PHP environment secrets and database credentials private; don't publish the database connection file. `endroid/qr-code` is already declared in `composer.json` and installed under `vendor/`; no separate QR package is required. A phone's built-in camera opens the teacher-generated session QR link in the browser; the phone and faculty laptop do not need to share a Wi-Fi network.
+#### Staging and production
 
-After deployment, activate an academic session and add the teacher's subject/class timetable for the current weekday. Test with an enrolled student: generate a 10-minute session, scan the teacher's shared session QR, sign in if prompted, and verify the success confirmation, Student history, and live faculty roster. Scan again to confirm duplicate rejection, then test early closure and expiry. To finalize expired absences even if no dashboard remains open, schedule `php.exe <project-path>\expireQrAttendance.php` to run every minute using the hosting scheduler or Windows Task Scheduler.
+The same PHP application and database schema are used in each environment; no source or frontend build changes are needed. Configure these server-side environment variables in the hosting platform (or Apache's PHP environment). Do not put secrets in frontend code:
+
+```text
+APP_ENV=production
+WEBSITE_BASE_URL=https://attendance.example.edu/Attendance-Management-System-master
+DB_HOST=<production database host>
+DB_PORT=3306
+DB_NAME=<production database name>
+DB_USER=<production database user>
+DB_PASSWORD=<production database password>
+QR_ATTENDANCE_TOKEN_KEY=<base64-encoded random 32-byte secret>
+```
+
+Set `WEBSITE_BASE_URL` to the deployed app's reachable public HTTPS URL, including its subdirectory. `APP_ENV=production` rejects HTTP, localhost, and private IP URLs. Staging can use `STAGING_WEBSITE_BASE_URL` and `STAGING_QR_ATTENDANCE_TOKEN_KEY` with `APP_ENV=staging`. Preserve each environment's signing key across all PHP instances in that environment, and use different keys for development, staging, and production. Deploy the project and `vendor/`, run the database migrations above, and provide environment settings through the hosting platform's secret manager; never upload the local `.env` or use the example key.
+
+QR scans open the home page and preserve the scanned session through Student sign-in. On first setup, run `DATABASE FILE/qr_attendance_schema.sql`, then sign in as Admin and open **QR & GPS Attendance → College Location Settings**. Enter the institution's real coordinates and permitted radius; attendance remains disabled until all values are configured. Students must allow precise location on the HTTPS site. The server validates the QR, authenticated student, class roster, request token, session status/expiry, location coordinates/accuracy, and geofence before writing attendance. A unique database key prevents duplicate records. The same-origin PHP backend writes to the configured environment's database; client requests cannot select the backend/database.
+
+After deployment, activate an academic session and add the teacher's subject/class timetable for the current weekday. Test with an enrolled student from a phone on mobile data: generate a 10-minute session, scan the teacher's QR, sign in if prompted, and verify the success confirmation, Student history, and live faculty roster. Scan again to confirm duplicate rejection, then test early closure and expiry. To finalize expired absences when no dashboard remains open, schedule `php.exe <project-path>\expireQrAttendance.php` to run every minute using the hosting scheduler or Windows Task Scheduler.
+
+Run `C:\xampp\php\php.exe tests\attendance_config_test.php` for URL/security/token/geofence checks, and `C:\xampp\php\php.exe tests\database_smoke_test.php` to verify local MySQL connectivity and required QR attendance tables. End-to-end attendance recording additionally requires valid student, class, academic session, and timetable records, so follow the manual scan steps above without using test requests that write to a live database.
 
 ### Smart Login System
 - Teachers can only log in during their scheduled teaching sessions

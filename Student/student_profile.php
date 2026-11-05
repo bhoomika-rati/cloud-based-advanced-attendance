@@ -9,10 +9,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $email = trim((string)($_POST['email_address'] ?? ''));
         $phone = trim((string)($_POST['phone_number'] ?? ''));
+        $department = trim((string)($_POST['department'] ?? ''));
+        $semester = trim((string)($_POST['semester'] ?? ''));
+        $academicYear = trim((string)($_POST['academic_year'] ?? ''));
         if ($email !== '' && (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 254)) {
             $errorMessage = 'Enter a valid email address.';
         } elseif (strlen($phone) > 40 || ($phone !== '' && !preg_match('/\A[+0-9().\-\s]{5,40}\z/', $phone))) {
             $errorMessage = 'Enter a valid phone number.';
+        } elseif (strlen($department) > 191) {
+            $errorMessage = 'Department must be 191 characters or fewer.';
+        } elseif (strlen($semester) > 40) {
+            $errorMessage = 'Semester must be 40 characters or fewer.';
+        } elseif (strlen($academicYear) > 40) {
+            $errorMessage = 'Academic year must be 40 characters or fewer.';
         } else {
             $photoPath = (string)($student['photo_path'] ?? '');
             $uploadedPhoto = null;
@@ -47,10 +56,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($errorMessage === '') {
                 $profileStmt = $conn->prepare(
-                    "INSERT INTO student_profiles (student_id, email_address, phone_number, photo_path)
-                     VALUES (?, ?, ?, ?)
+                    "INSERT INTO student_profiles
+                        (student_id, email_address, phone_number, department, semester, academic_year, photo_path)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)
                      ON DUPLICATE KEY UPDATE email_address = VALUES(email_address),
-                         phone_number = VALUES(phone_number), photo_path = VALUES(photo_path)"
+                         phone_number = VALUES(phone_number), department = VALUES(department),
+                         semester = VALUES(semester), academic_year = VALUES(academic_year),
+                         photo_path = VALUES(photo_path)"
                 );
                 if (!$profileStmt) {
                     if ($uploadedPhoto !== null && is_file($uploadedPhoto)) {
@@ -60,7 +72,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     http_response_code(500);
                     $errorMessage = 'Unable to update your profile right now.';
                 } else {
-                    $profileStmt->bind_param('isss', $studentId, $email, $phone, $photoPath);
+                    $profileStmt->bind_param(
+                        'issssss',
+                        $studentId,
+                        $email,
+                        $phone,
+                        $department,
+                        $semester,
+                        $academicYear,
+                        $photoPath
+                    );
                     if (!$profileStmt->execute()) {
                         if ($uploadedPhoto !== null && is_file($uploadedPhoto)) {
                             unlink($uploadedPhoto);
@@ -83,7 +104,7 @@ $pageTitle = 'My Profile';
 require __DIR__ . '/Includes/student_page_start.php';
 ?>
 <header class="student-page-heading"><div><h1>My profile</h1><p>Your personal and academic information.</p></div></header>
-<?php if (!empty($_GET['updated'])): ?><div class="student-alert success mb-4" role="status">Your profile was updated.</div><?php endif; ?>
+<?php if (($_GET['updated'] ?? '') === '1'): ?><div class="student-alert success mb-4" role="status">Your contact and academic profile details were saved.</div><?php endif; ?>
 <?php if ($errorMessage !== ''): ?><div class="alert alert-danger"><?= studentEscape($errorMessage) ?></div><?php endif; ?>
 <div class="row">
     <div class="col-xl-4 mb-4">
@@ -107,9 +128,21 @@ require __DIR__ . '/Includes/student_page_start.php';
     </div>
     <div class="col-xl-8 mb-4">
         <section class="student-card">
-            <h2 class="student-card-title">Contact details</h2>
+            <h2 class="student-card-title">Contact and academic details</h2>
             <form method="post" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?= studentEscape(studentCsrfToken()) ?>">
+                <div class="form-group">
+                    <label class="student-form-label" for="department">Department</label>
+                    <input class="form-control student-form-control" id="department" type="text" name="department" maxlength="191" value="<?= studentEscape($_POST['department'] ?? $student['department'] ?? '') ?>" autocomplete="organization-title">
+                </div>
+                <div class="form-group">
+                    <label class="student-form-label" for="semester">Semester</label>
+                    <input class="form-control student-form-control" id="semester" type="text" name="semester" maxlength="40" value="<?= studentEscape($_POST['semester'] ?? $student['semester'] ?? '') ?>" placeholder="For example, Semester 1">
+                </div>
+                <div class="form-group">
+                    <label class="student-form-label" for="academic-year">Academic year</label>
+                    <input class="form-control student-form-control" id="academic-year" type="text" name="academic_year" maxlength="40" value="<?= studentEscape($_POST['academic_year'] ?? $student['academic_year'] ?? '') ?>" placeholder="For example, 2026–2027">
+                </div>
                 <div class="form-group">
                     <label class="student-form-label" for="email-address">Email address</label>
                     <input class="form-control student-form-control" id="email-address" type="email" name="email_address" maxlength="254" value="<?= studentEscape($_POST['email_address'] ?? $student['email_address'] ?? '') ?>" autocomplete="email">

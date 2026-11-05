@@ -27,7 +27,7 @@ if (!$teacherId) {
 $websiteBaseUrl = '';
 $configurationError = '';
 try {
-    $websiteBaseUrl = attendanceWebsiteBaseUrl();
+    $websiteBaseUrl = attendancePublicWebsiteBaseUrl();
 } catch (RuntimeException $exception) {
     $configurationError = $exception->getMessage();
 }
