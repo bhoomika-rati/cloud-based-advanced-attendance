@@ -14,7 +14,6 @@ $activeGroups = [
     'createTimetable.php' => 'collapseTimetable',
     'viewTimetable.php' => 'collapseTimetable',
     'timetableDaysOf.php' => 'collapseTimetable',
-    'Attendance_Statistics.php' => 'collapseAttendance',
     'qrAttendanceSettings.php' => 'collapseQrAttendance',
     'qrAttendanceReports.php' => 'collapseQrAttendance',
 ];
@@ -290,20 +289,6 @@ $activeGroup = $activeGroups[$currentPage] ?? '';
     </li>
 
     <hr class="sidebar-divider">
-    <div class="sidebar-heading">REPORTS</div>
-
-    <li class="nav-item <?php echo $activeGroup === 'collapseAttendance' ? 'active' : ''; ?>">
-        <a class="nav-link <?php echo $activeGroup === 'collapseAttendance' ? '' : 'collapsed'; ?>" href="#" data-toggle="collapse" data-target="#collapseAttendance" aria-expanded="<?php echo $activeGroup === 'collapseAttendance' ? 'true' : 'false'; ?>" aria-controls="collapseAttendance">
-            <i class="fas fa-chart-bar"></i><span>Attendance Statistics</span>
-        </a>
-        <div id="collapseAttendance" class="collapse <?php echo $activeGroup === 'collapseAttendance' ? 'show' : ''; ?>" data-parent="#accordionSidebar">
-            <div class="collapse-inner rounded">
-                <h6 class="collapse-header">Attendance Statistics</h6>
-                <a class="collapse-item <?php echo $currentPage === 'Attendance_Statistics.php' ? 'active' : ''; ?>" href="Attendance_Statistics.php">View Statistics</a>
-            </div>
-        </div>
-    </li>
-
     <li class="nav-item <?php echo $activeGroup === 'collapseQrAttendance' ? 'active' : ''; ?>">
         <a class="nav-link <?php echo $activeGroup === 'collapseQrAttendance' ? '' : 'collapsed'; ?>"
            href="#" data-toggle="collapse" data-target="#collapseQrAttendance"

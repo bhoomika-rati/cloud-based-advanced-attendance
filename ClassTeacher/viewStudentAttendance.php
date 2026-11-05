@@ -195,6 +195,9 @@ if ($hasSearched) {
                        ELSE attendance.status
                    END AS attendance_status,
                    {$dateExpression} AS attendance_date,
+                   qrRecord.latitude,
+                   qrRecord.longitude,
+                   qrRecord.location_verified,
                    CASE
                        WHEN qrRecord.status = 'present' AND qrRecord.marked_at IS NOT NULL
                            THEN TIME(qrRecord.marked_at)
@@ -364,7 +367,9 @@ if ($hasSearched) {
                                 <th>Status</th>
                                 <th>Date</th>
                                 <th>Start Time</th>
-                                <th>End Time</th>
+                                <th>Latitude</th>
+                                <th>Longitude</th>
+                                <th>Location Verification</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -390,7 +395,11 @@ if ($hasSearched) {
                                   <td><span class="badge <?php echo $statusClass; ?>"><?php echo attendanceViewEscape($rowStatus); ?></span></td>
                                   <td><?php echo attendanceViewEscape($rowDate); ?></td>
                                   <td><?php echo attendanceViewEscape($rowStartTime); ?></td>
-                                  <td>Not Checked Out</td>
+                                  <td><?php echo $row['latitude'] !== null ? attendanceViewEscape($row['latitude']) : '—'; ?></td>
+                                  <td><?php echo $row['longitude'] !== null ? attendanceViewEscape($row['longitude']) : '—'; ?></td>
+                                  <td><?php echo $row['location_verified'] === null
+                                      ? 'Not Recorded'
+                                      : ((int)$row['location_verified'] === 1 ? 'Verified' : 'Not Verified'); ?></td>
                                 </tr>
                               <?php endforeach; ?>
                             </tbody>

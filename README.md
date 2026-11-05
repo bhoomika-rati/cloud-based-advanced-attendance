@@ -26,7 +26,7 @@ This web application provides a complete solution for managing student attendanc
   - Configure sessions (class periods)
   - Create and manage timetables
   - Set up holidays and days off
-- **Reporting**: View attendance statistics by class, group, course, session, and teacher
+- **Reporting**: View QR attendance session and GPS verification reports
 
 ## Admin Dashboard Guide
 
@@ -50,7 +50,7 @@ The **Attendance Log** lists recent records and provides:
 - **Class / Group** — class and group IDs recorded on the attendance row.
 - **Date** — when the record was taken.
 - **Status** — Present or Absent.
-- **Search** — filters visible attendance rows by student/admission details.
+- **Search and pagination** — search by student name or admission number and browse the results 10 records per page.
 
 **Export CSV** downloads up to the 100 most recent records with Attendance ID, Admission Number, Student Name, Class ID, Class Group ID, Date, and Status. The bell icon is displayed as a notification affordance; the dashboard currently has no notification feed.
 
@@ -62,7 +62,7 @@ The sidebar groups admin pages into:
 2. **Classes** — Manage Classes and Manage Class Groups.
 3. **People** — Manage Teachers and Manage Students.
 4. **Academics** — Courses and Modules, Manage Sessions, and Manage Timetables.
-5. **Reports** — Attendance Statistics.
+5. **QR & GPS Attendance** — Session and GPS reports, and college location settings.
 
 For a new setup, create classes and class groups first, then modules/courses, teachers and students, and finally sessions and timetables. Sessions refer to courses and teachers; timetables associate sessions with a class group and date range.
 
@@ -167,10 +167,6 @@ The timetable list shows name, class/group, and term, with edit/delete actions. 
 - **Day Off Date**.
 
 This admin page has no create/edit form; it displays day-off records already associated with a timetable.
-
-### Attendance Statistics
-
-**View Statistics** summarizes absences (attendance status `1`) by class, class group, course, session, and teacher, and shows the total and the class group with the most absences. A course may display as unavailable when its catalog record has been removed.
 
 ### How the main records connect
 

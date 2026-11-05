@@ -15,9 +15,7 @@ This guide covers every page linked from the Admin sidebar: what it does, how it
 | Courses and Modules | Manage Courses, Manage Modules | Maintain the course catalog, module catalog, and course-module associations |
 | Manage Sessions | Create Session | Schedule individual teaching meetings |
 | Manage Timetables | Create Timetable, View Timetable, Timetable Days Off | Build schedules, inspect a schedule for a date, and view linked days off |
-| Attendance Statistics | View Statistics | Summarize recorded absences |
-
-Sidebar headings such as **Administration**, **Classes**, **People**, **Academics**, and **Reports** are group labels, not separate data-entry pages. Use the expand arrow beside a tab to show its page links.
+Sidebar headings such as **Administration**, **Classes**, **People**, and **Academics** are group labels, not separate data-entry pages. Use the expand arrow beside a tab to show its page links.
 
 ## Recommended setup order
 
@@ -32,7 +30,7 @@ Set up the records in this order because later forms use earlier records in thei
 7. Create timetables, associating a class group, term, and one or more sessions.
 8. Register students in their class groups.
 9. Record attendance through the teacher/student attendance features.
-10. Review the dashboard and Attendance Statistics.
+10. Review the dashboard and QR & GPS Attendance reports.
 
 This local application was recently cleared of its demo academic and attendance records. The administrator account and three term records were retained. Consequently, lists may currently be empty. Create classes, groups, courses, modules, and teachers before trying to create sessions or timetables.
 
@@ -48,8 +46,8 @@ There is currently no **Manage Terms** page in the Admin sidebar. The session an
 - **Present Today** counts attendance records dated today with status `0`.
 - **Absent Today** counts attendance records dated today with status `1`.
 - **Attendance Records** counts attendance entries; it is not the student count.
-- **Attendance Log** lists up to the 100 most recent records with the student name, admission number, stored class/group IDs, date, and status. If a student record is missing, the log can show “Student not found.”
-- The log search filters the displayed rows.
+- **Attendance Log** lists attendance records 10 at a time, newest first, with the student name, admission number, stored class/group IDs, date, and status. If a student record is missing, the log can show “Student not found.”
+- Search the log by student name or admission number; pagination keeps the search filter.
 - **Export CSV** downloads the same most-recent attendance records with their IDs and status.
 - The bell icon is a visual notification control; the current dashboard does not provide a notification feed.
 
@@ -224,14 +222,6 @@ The page uses timetable date ranges and the timetable-to-session links to find e
 **What it does:** Shows the timetable name, day-off name, and date for holiday records linked to timetables.
 
 **How to add data:** This page is **read-only**. There is no admin form in the current application to create a holiday or link it to a timetable. An empty table means no linked day-off records exist; this page cannot add them. A supported entry workflow would need to be added to the application or the records managed by an authorized database administrator. A day-off record must be associated with a timetable before it appears here.
-
-## Attendance Statistics — View Statistics
-
-**What it does:** Read-only report of recorded absences grouped by class, class group, course, session, and teacher. It also shows the total absences and class group with the highest count.
-
-The report treats attendance status `1` as absent. It depends on attendance being linked to valid students, class groups, sessions, and teachers. Course rows can display as **Course unavailable** if the referenced course was removed. When there are no matching records, the tables are empty and the total/highest group show zero or `N/A`.
-
-**How to populate it:** Create students and sessions, then record attendance through the teacher/student attendance workflow. There is no attendance-entry form on the Statistics page itself.
 
 ## Data relationships at a glance
 

@@ -50,9 +50,91 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     }
     fclose($out); exit;
 }
+$searchTerm = isset($_GET['search']) && is_string($_GET['search']) ? trim($_GET['search']) : '';
+$pageSize = 10;
+$requestedPage = isset($_GET['page']) && is_string($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$attendanceFilter = '';
+if ($searchTerm !== '') {
+    $attendanceFilter = " WHERE (a.admissionNo LIKE ? OR CONCAT_WS(' ', s.firstName, s.lastName) LIKE ?)";
+    $searchPattern = '%' . $searchTerm . '%';
+}
+
+$countSql = "SELECT COUNT(*) AS total FROM tblattendance a"
+    . ($searchTerm !== '' ? " LEFT JOIN tblstudents s ON s.admissionNumber = a.admissionNo" : '')
+    . $attendanceFilter;
+$countStatement = mysqli_prepare($conn, $countSql);
+if (!$countStatement) {
+    error_log('Admin attendance log count could not be prepared: ' . $conn->error);
+    http_response_code(500);
+    exit('Unable to load attendance records.');
+}
+if ($searchTerm !== '' && !mysqli_stmt_bind_param($countStatement, 'ss', $searchPattern, $searchPattern)) {
+    error_log('Admin attendance log count parameters could not be bound: ' . mysqli_stmt_error($countStatement));
+    http_response_code(500);
+    exit('Unable to load attendance records.');
+}
+if (!mysqli_stmt_execute($countStatement)) {
+    error_log('Admin attendance log count could not be loaded: ' . mysqli_stmt_error($countStatement));
+    http_response_code(500);
+    exit('Unable to load attendance records.');
+}
+$countResult = mysqli_stmt_get_result($countStatement);
+$attendanceCountRow = $countResult ? mysqli_fetch_assoc($countResult) : null;
+mysqli_stmt_close($countStatement);
+if (!$attendanceCountRow) {
+    error_log('Admin attendance log count returned no result.');
+    http_response_code(500);
+    exit('Unable to load attendance records.');
+}
+$totalMatchingRecords = (int)$attendanceCountRow['total'];
+$totalPages = max(1, (int)ceil($totalMatchingRecords / $pageSize));
+$attendancePage = min($requestedPage, $totalPages);
+$offset = ($attendancePage - 1) * $pageSize;
+
+$pageSql = "SELECT a.Id, a.admissionNo, a.classId, a.classArmId, a.status, a.dateTimeTaken,
+                   s.firstName, s.lastName
+            FROM tblattendance a
+            LEFT JOIN tblstudents s ON s.admissionNumber = a.admissionNo"
+    . $attendanceFilter
+    . " ORDER BY a.dateTimeTaken DESC, a.Id DESC LIMIT ? OFFSET ?";
+$pageStatement = mysqli_prepare($conn, $pageSql);
+if (!$pageStatement) {
+    error_log('Admin attendance log page could not be prepared: ' . $conn->error);
+    http_response_code(500);
+    exit('Unable to load attendance records.');
+}
+if ($searchTerm !== '') {
+    if (!mysqli_stmt_bind_param($pageStatement, 'ssii', $searchPattern, $searchPattern, $pageSize, $offset)) {
+        error_log('Admin attendance log page parameters could not be bound: ' . mysqli_stmt_error($pageStatement));
+        http_response_code(500);
+        exit('Unable to load attendance records.');
+    }
+} elseif (!mysqli_stmt_bind_param($pageStatement, 'ii', $pageSize, $offset)) {
+    error_log('Admin attendance log page parameters could not be bound: ' . mysqli_stmt_error($pageStatement));
+    http_response_code(500);
+    exit('Unable to load attendance records.');
+}
+if (!mysqli_stmt_execute($pageStatement)) {
+    error_log('Admin attendance log page could not be loaded: ' . mysqli_stmt_error($pageStatement));
+    http_response_code(500);
+    exit('Unable to load attendance records.');
+}
+$attendanceResult = mysqli_stmt_get_result($pageStatement);
 $attendanceRows = [];
-$attendanceResult = mysqli_query($conn, $attendanceSql);
-if ($attendanceResult) while ($r = mysqli_fetch_assoc($attendanceResult)) $attendanceRows[] = $r;
+if (!$attendanceResult) {
+    error_log('Admin attendance log result could not be read: ' . mysqli_stmt_error($pageStatement));
+    mysqli_stmt_close($pageStatement);
+    http_response_code(500);
+    exit('Unable to load attendance records.');
+}
+while ($r = mysqli_fetch_assoc($attendanceResult)) $attendanceRows[] = $r;
+mysqli_stmt_close($pageStatement);
+$firstRecord = $totalMatchingRecords > 0 ? $offset + 1 : 0;
+$lastRecord = min($offset + $pageSize, $totalMatchingRecords);
+$pageWindowStart = max(1, $attendancePage - 2);
+$pageWindowEnd = min($totalPages, $pageWindowStart + 4);
+$pageWindowStart = max(1, $pageWindowEnd - 4);
+$pageQuery = ['search' => $searchTerm];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -86,15 +168,18 @@ body,#content-wrapper{background:var(--aa-page);color:var(--aa-navy)}body{font-f
 <div class="col-xl-3 col-md-6 mb-4"><div class="card aa-stat-card h-100"><div class="card-body"><div class="aa-stat-icon aa-orange"><i class="far fa-clock"></i></div><div class="aa-stat-label">Attendance Records</div><div class="aa-stat-value"><?php echo $totalAttendanceRecords; ?></div><div class="aa-stat-note">All recorded entries</div></div></div></div>
 </div>
 <section class="aa-log-card mb-4"><div class="aa-log-header"><div><h2 class="aa-log-title">QR &amp; GPS Attendance</h2><p class="aa-log-subtitle">Monitor faculty sessions and location-verified attendance.</p></div><div class="aa-header-actions"><a class="btn btn-outline-primary" href="qrAttendanceSettings.php"><i class="fas fa-map-marker-alt mr-1"></i>College location</a><a class="btn btn-primary" href="qrAttendanceReports.php"><i class="fas fa-chart-bar mr-1"></i>View QR reports</a></div></div><div class="row px-3 pb-3 text-center"><div class="col-md-3 mb-2"><strong><?php echo $qrSessionCount; ?></strong><div class="small text-muted">QR sessions</div></div><div class="col-md-3 mb-2"><strong><?php echo $qrActiveSessions; ?></strong><div class="small text-muted">Currently active</div></div><div class="col-md-3 mb-2"><strong><?php echo $qrGpsVerified; ?></strong><div class="small text-muted">Location verified check-ins</div></div><div class="col-md-3 mb-2"><span class="badge badge-<?php echo $qrLocationConfigured ? 'success' : 'warning'; ?>"><?php echo $qrLocationConfigured ? 'Configured' : 'Needs configuration'; ?></span><div class="small text-muted">College geofence</div></div></div></section>
-<section class="aa-log-card"><div class="aa-log-header"><div><h2 class="aa-log-title">Attendance Log</h2><p class="aa-log-subtitle">Latest attendance records from your database</p></div><div class="aa-search-wrap"><i class="fas fa-search"></i><input type="search" id="attendanceSearch" class="aa-search" placeholder="Search student or admission no..." aria-label="Search attendance records"></div></div>
+<section class="aa-log-card"><div class="aa-log-header"><div><h2 class="aa-log-title">Attendance Log</h2><p class="aa-log-subtitle">Attendance records from your database</p></div><form class="aa-header-actions" method="get" action="index.php"><div class="aa-search-wrap"><i class="fas fa-search"></i><input type="search" name="search" class="aa-search" value="<?php echo aa_escape($searchTerm); ?>" placeholder="Search student or admission no..." aria-label="Search attendance records"></div><button class="btn btn-primary" type="submit">Search</button><?php if ($searchTerm !== ''): ?><a class="btn btn-outline-secondary" href="index.php">Clear</a><?php endif; ?></form></div>
 <div class="aa-table-wrap"><table class="aa-table" id="attendanceTable"><thead><tr><th>Student Name</th><th>Admission No.</th><th>Class / Group</th><th>Date</th><th>Status</th></tr></thead><tbody>
-<?php if (!$attendanceRows): ?><tr><td colspan="5" class="aa-empty">No attendance records were found.</td></tr><?php else: foreach ($attendanceRows as $r):
+<?php if (!$attendanceRows): ?><tr><td colspan="5" class="aa-empty"><?php echo $searchTerm !== '' ? 'No matching attendance records were found.' : 'No attendance records were found.'; ?></td></tr><?php else: foreach ($attendanceRows as $r):
 $name=trim(($r['firstName']??'').' '.($r['lastName']??'')); if($name==='') $name='Student not found';
 $initials=strtoupper(substr((string)($r['firstName']??'S'),0,1).substr((string)($r['lastName']??''),0,1)); $isAbsent=((string)$r['status']==='1'); ?>
 <tr><td><div class="aa-student"><span class="aa-avatar"><?php echo aa_escape($initials); ?></span><span><?php echo aa_escape($name); ?></span></div></td><td><?php echo aa_escape($r['admissionNo']); ?></td><td><?php echo aa_escape($r['classId']).' / '.aa_escape($r['classArmId']); ?></td><td><?php echo aa_escape($r['dateTimeTaken']); ?></td><td><span class="aa-status <?php echo $isAbsent?'aa-status-absent':'aa-status-present'; ?>"><?php echo $isAbsent?'Absent':'Present'; ?></span></td></tr>
-<?php endforeach; endif; ?></tbody></table></div><div class="aa-log-footer"><span id="attendanceCount">Showing <?php echo count($attendanceRows); ?> latest records</span><span>Maximum 100 latest records displayed</span></div></section>
+<?php endforeach; endif; ?></tbody></table></div><div class="aa-log-footer"><span>Showing <?php echo $firstRecord; ?>–<?php echo $lastRecord; ?> of <?php echo $totalMatchingRecords; ?> records</span><?php if ($totalPages > 1): ?><nav aria-label="Attendance log pages"><ul class="pagination pagination-sm mb-0">
+<li class="page-item <?php echo $attendancePage === 1 ? 'disabled' : ''; ?>"><?php if ($attendancePage > 1): ?><a class="page-link" href="index.php?<?php echo aa_escape(http_build_query($pageQuery + ['page' => $attendancePage - 1])); ?>" aria-label="Previous page">&laquo;</a><?php else: ?><span class="page-link" aria-hidden="true">&laquo;</span><?php endif; ?></li>
+<?php for ($pageNumber = $pageWindowStart; $pageNumber <= $pageWindowEnd; $pageNumber++): ?><li class="page-item <?php echo $pageNumber === $attendancePage ? 'active' : ''; ?>"><?php if ($pageNumber === $attendancePage): ?><span class="page-link" aria-current="page"><?php echo $pageNumber; ?></span><?php else: ?><a class="page-link" href="index.php?<?php echo aa_escape(http_build_query($pageQuery + ['page' => $pageNumber])); ?>"><?php echo $pageNumber; ?></a><?php endif; ?></li><?php endfor; ?>
+<li class="page-item <?php echo $attendancePage === $totalPages ? 'disabled' : ''; ?>"><?php if ($attendancePage < $totalPages): ?><a class="page-link" href="index.php?<?php echo aa_escape(http_build_query($pageQuery + ['page' => $attendancePage + 1])); ?>" aria-label="Next page">&raquo;</a><?php else: ?><span class="page-link" aria-hidden="true">&raquo;</span><?php endif; ?></li>
+</ul></nav><?php endif; ?></div></section>
 </div></div><?php include 'Includes/footer.php'; ?></div></div>
 <a class="scroll-to-top rounded" href="#page-top" aria-label="Scroll to top"><i class="fas fa-angle-up"></i></a>
 <script src="../vendore/jquery/jquery.min.js"></script><script src="../vendore/bootstrap/js/bootstrap.bundle.min.js"></script><script src="../vendore/jquery-easing/jquery.easing.min.js"></script><script src="js/ruang-admin.min.js"></script>
-<script>(function(){var input=document.getElementById('attendanceSearch'),table=document.getElementById('attendanceTable'),label=document.getElementById('attendanceCount');if(!input||!table)return;input.addEventListener('input',function(){var q=input.value.toLowerCase().trim(),rows=table.querySelectorAll('tbody tr'),n=0;rows.forEach(function(row){var match=row.textContent.toLowerCase().indexOf(q)!==-1;row.style.display=match?'':'none';if(match)n++;});if(label)label.textContent='Showing '+n+' matching record'+(n===1?'':'s');});})();</script>
 </body></html>

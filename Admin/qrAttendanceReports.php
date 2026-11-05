@@ -165,11 +165,11 @@ $currentTime = qrAttendanceNow();
                     <div class="table-responsive">
                         <table class="table table-bordered table-hover mb-0">
                             <thead class="thead-light">
-                            <tr><th>Date / Time</th><th>Class / Group</th><th>Subject</th><th>Faculty</th><th>Session status</th><th>Students</th><th>Present</th><th>Absent</th><th>Location verified</th><th></th></tr>
+                            <tr><th>Date / Time</th><th>Class / Group</th><th>Subject</th><th>Faculty</th><th>Session status</th><th>Students</th><th>Present</th><th>Absent</th><th>Location verified</th></tr>
                             </thead>
                             <tbody>
                             <?php if (!$sessions): ?>
-                                <tr><td class="text-center text-muted" colspan="10">No QR attendance sessions have been created.</td></tr>
+                                <tr><td class="text-center text-muted" colspan="9">No QR attendance sessions have been created.</td></tr>
                             <?php else: foreach ($sessions as $session):
                                 $status = $session['status'];
                                 if ($status === 'active'
@@ -187,7 +187,6 @@ $currentTime = qrAttendanceNow();
                                     <td><?= (int)$session['present_students'] ?></td>
                                     <td><?= (int)$session['absent_students'] ?></td>
                                     <td><?= (int)$session['location_verified_students'] ?></td>
-                                    <td><a href="?page=<?= (int)$page ?>&amp;session_id=<?= (int)$session['id'] ?>">View records</a></td>
                                 </tr>
                             <?php endforeach; endif; ?>
                             </tbody>
