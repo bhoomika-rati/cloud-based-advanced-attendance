@@ -122,17 +122,15 @@ include '../Includes/session.php';
                                     <td>".$sn."</td>
                                     <td>".$rows['firstName']."</td>
                                     <td>".$rows['lastName']."</td>
-                                   
                                     <td>".$rows['admissionNumber']."</td>
                                     <td>".$rows['className']."</td>
                                     <td>".$rows['classArmName']."</td>
                                     <td>".$rows['sessionName']."</td>
                                     <td>".$rows['termName']."</td>
+                                    <td style='background-color:".$colour."'>".$status."</td>
                                     <td>".$rows['dateTimeTaken']."</td>
                                     <td>".$rows['startTime']."</td>
                                     <td>".$rows['endTime']."</td>
-                                    <td style='background-color:".$colour."'>".$status."</td>
-                                   
                                   </tr>";
                               }
                             } else {
@@ -178,13 +176,13 @@ include '../Includes/session.php';
     <i class="fas fa-angle-up"></i>
   </a>
 
-  <script src="../vendor/jquery/jquery.min.js"></script>
-  <script src="../vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="../vendor/jquery-easing/jquery.easing.min.js"></script>
+  <script src="../vendore/jquery/jquery.min.js"></script>
+  <script src="../vendore/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="../vendore/jquery-easing/jquery.easing.min.js"></script>
   <script src="js/ruang-admin.min.js"></script>
   <!-- Page level plugins -->
-  <script src="../vendor/datatables/jquery.dataTables.min.js"></script>
-  <script src="../vendor/datatables/dataTables.bootstrap4.min.js"></script>
+  <script src="../vendore/datatables/jquery.dataTables.min.js"></script>
+  <script src="../vendore/datatables/dataTables.bootstrap4.min.js"></script>
 
   <!-- Page level custom scripts -->
   <script>

@@ -17,6 +17,20 @@ $totalAttendanceRecords = aa_count($conn, "SELECT COUNT(*) AS total FROM tblatte
 // Existing records use YYYY-MM-DD in dateTimeTaken; status 0 = present, 1 = absent.
 $presentToday = aa_count($conn, "SELECT COUNT(*) AS total FROM tblattendance WHERE status='0' AND dateTimeTaken=CURDATE()");
 $absentToday = aa_count($conn, "SELECT COUNT(*) AS total FROM tblattendance WHERE status='1' AND dateTimeTaken=CURDATE()");
+$qrSessionCount = aa_count($conn, "SELECT COUNT(*) AS total FROM qr_attendance_sessions");
+$qrActiveSessions = aa_count($conn, "SELECT COUNT(*) AS total FROM qr_attendance_sessions WHERE status='active' AND expires_at > NOW()");
+$qrGpsVerified = aa_count($conn, "SELECT COUNT(*) AS total FROM qr_attendance_records WHERE location_verified=1");
+$qrLocationResult = $conn->query("SELECT latitude, longitude, radius_m FROM qr_attendance_settings WHERE id=1");
+if (!$qrLocationResult) {
+    error_log('Admin QR location status could not be loaded: ' . $conn->error);
+    http_response_code(500);
+    exit('Unable to load QR attendance location status.');
+}
+$qrLocation = $qrLocationResult ? $qrLocationResult->fetch_assoc() : null;
+$qrLocationConfigured = $qrLocation
+    && $qrLocation['latitude'] !== null
+    && $qrLocation['longitude'] !== null
+    && $qrLocation['radius_m'] !== null;
 $attendanceSql = "SELECT a.Id, a.admissionNo, a.classId, a.classArmId, a.status, a.dateTimeTaken,
                          s.firstName, s.lastName
                   FROM tblattendance a
@@ -71,6 +85,7 @@ body,#content-wrapper{background:var(--aa-page);color:var(--aa-navy)}body{font-f
 <div class="col-xl-3 col-md-6 mb-4"><div class="card aa-stat-card h-100"><div class="card-body"><div class="aa-stat-icon aa-red"><i class="fas fa-exclamation-circle"></i></div><div class="aa-stat-label">Absent Today</div><div class="aa-stat-value"><?php echo $absentToday; ?></div><div class="aa-stat-note">Records dated today</div></div></div></div>
 <div class="col-xl-3 col-md-6 mb-4"><div class="card aa-stat-card h-100"><div class="card-body"><div class="aa-stat-icon aa-orange"><i class="far fa-clock"></i></div><div class="aa-stat-label">Attendance Records</div><div class="aa-stat-value"><?php echo $totalAttendanceRecords; ?></div><div class="aa-stat-note">All recorded entries</div></div></div></div>
 </div>
+<section class="aa-log-card mb-4"><div class="aa-log-header"><div><h2 class="aa-log-title">QR &amp; GPS Attendance</h2><p class="aa-log-subtitle">Monitor faculty sessions and location-verified attendance.</p></div><div class="aa-header-actions"><a class="btn btn-outline-primary" href="qrAttendanceSettings.php"><i class="fas fa-map-marker-alt mr-1"></i>College location</a><a class="btn btn-primary" href="qrAttendanceReports.php"><i class="fas fa-chart-bar mr-1"></i>View QR reports</a></div></div><div class="row px-3 pb-3 text-center"><div class="col-md-3 mb-2"><strong><?php echo $qrSessionCount; ?></strong><div class="small text-muted">QR sessions</div></div><div class="col-md-3 mb-2"><strong><?php echo $qrActiveSessions; ?></strong><div class="small text-muted">Currently active</div></div><div class="col-md-3 mb-2"><strong><?php echo $qrGpsVerified; ?></strong><div class="small text-muted">Location verified check-ins</div></div><div class="col-md-3 mb-2"><span class="badge badge-<?php echo $qrLocationConfigured ? 'success' : 'warning'; ?>"><?php echo $qrLocationConfigured ? 'Configured' : 'Needs configuration'; ?></span><div class="small text-muted">College geofence</div></div></div></section>
 <section class="aa-log-card"><div class="aa-log-header"><div><h2 class="aa-log-title">Attendance Log</h2><p class="aa-log-subtitle">Latest attendance records from your database</p></div><div class="aa-search-wrap"><i class="fas fa-search"></i><input type="search" id="attendanceSearch" class="aa-search" placeholder="Search student or admission no..." aria-label="Search attendance records"></div></div>
 <div class="aa-table-wrap"><table class="aa-table" id="attendanceTable"><thead><tr><th>Student Name</th><th>Admission No.</th><th>Class / Group</th><th>Date</th><th>Status</th></tr></thead><tbody>
 <?php if (!$attendanceRows): ?><tr><td colspan="5" class="aa-empty">No attendance records were found.</td></tr><?php else: foreach ($attendanceRows as $r):

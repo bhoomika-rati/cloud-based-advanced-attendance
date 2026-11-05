@@ -1,6 +1,7 @@
 <?php 
 include 'Includes/dbcon.php';
 session_start();
+ob_start();
 ?>
 
 <!DOCTYPE html>
@@ -15,10 +16,10 @@ session_start();
     <meta name="author" content="">
     <link href="img/logo/attnlg.jpg" rel="icon">
     <title>Code Camp BD - Login</title>
-    <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
+    <link href="vendore/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
     <link href="vendore/bootstrap/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="css/ruang-admin.min.css" rel="stylesheet">
-
+    <link href="Admin/css/admin-compact.css" rel="stylesheet">
 </head>
 
 <body class="bg-gradient-login">
@@ -41,13 +42,11 @@ session_start();
                                             <input type="text" class="form-control" required name="username" id="exampleInputEmail" placeholder="Enter Email Address">
                                         </div>
                                         <div class="form-group">
-                                            <input type="password" name="password" required class="form-control" id="exampleInputPassword" placeholder="Enter Password">
-                                        </div>
-                                        <div class="form-group">
-                                            <div class="custom-control custom-checkbox small" style="line-height: 1.5rem;">
-                                                <input type="checkbox" class="custom-control-input" id="customCheck">
-                                                <!-- <label class="custom-control-label" for="customCheck">Remember
-                          Me</label> -->
+                                            <div class="password-field-group">
+                                                <input type="password" name="password" required class="form-control" id="exampleInputPassword" placeholder="Enter Password">
+                                                <button type="button" class="password-toggle-btn" aria-label="Show password" title="Show password" tabindex="0">
+                                                    <i class="fas fa-eye" aria-hidden="true"></i>
+                                                </button>
                                             </div>
                                         </div>
                                         <div class="form-group">
@@ -59,19 +58,35 @@ session_start();
 
   if(isset($_POST['login'])){
 
-    $username = $_POST['username'];
-    $password = $_POST['password'];
+    $username = trim($_POST['username'] ?? '');
+    $passwordInput = $_POST['password'] ?? '';
 
-    $password = md5($password);
+    $stmt = $conn->prepare("SELECT * FROM tblclassteacher WHERE LOWER(TRIM(emailAddress)) = LOWER(?)");
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $rs = $stmt->get_result();
+    $rows = $rs ? $rs->fetch_assoc() : null;
+    $stmt->close();
 
-    $query = "SELECT * FROM tblclassteacher WHERE emailAddress = '$username' AND password = '$password'";
-    $rs = $conn->query($query);
-    $num = $rs->num_rows;
-    $rows = $rs->fetch_assoc();
+    $valid = false;
+    if($rows){
+      if(password_verify($passwordInput, $rows['password'])){
+        $valid = true;
+      } elseif($rows['password'] === md5($passwordInput) || $rows['password'] === $passwordInput){
+        $valid = true;
+        $newHash = password_hash($passwordInput, PASSWORD_DEFAULT);
+        $up = $conn->prepare("UPDATE tblclassteacher SET password = ? WHERE Id = ?");
+        $up->bind_param("si", $newHash, $rows['Id']);
+        $up->execute();
+        $up->close();
+      }
+    }
 
-    if($num > 0){
+    if($valid){
 
+      session_regenerate_id(true);
       $_SESSION['userId'] = $rows['Id'];
+      $_SESSION['userType'] = 'ClassTeacher';
       $_SESSION['firstName'] = $rows['firstName'];
       $_SESSION['lastName'] = $rows['lastName'];
       $_SESSION['emailAddress'] = $rows['emailAddress'];
@@ -79,8 +94,9 @@ session_start();
       $_SESSION['classArmId'] = $rows['classArmId'];
 
       echo "<script type = \"text/javascript\">
-      window.location = (\"ClassTeacher/index.php\")
+      window.location = (\"ClassTeacher/index.php\");
       </script>";
+      exit();
     }
 
     else{
@@ -118,10 +134,11 @@ session_start();
         </div>
     </div>
     <!-- Login Content -->
-    <script src="vendor/jquery/jquery.min.js"></script>
-    <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-    <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
+    <script src="vendore/jquery/jquery.min.js"></script>
+    <script src="vendore/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="vendore/jquery-easing/jquery.easing.min.js"></script>
     <script src="js/ruang-admin.min.js"></script>
+    <script src="js/password-toggle.js"></script>
 </body>
 
 </html>

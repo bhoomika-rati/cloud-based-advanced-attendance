@@ -10,19 +10,19 @@ if (isset($_POST['save'])) {
     $className = trim($_POST['className'] ?? '');
 
     if (!preg_match('/^(UG|PG)\s+-\s+\S.+$/', $className)) {
-        $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>Enter a class name starting with UG - or PG -, such as UG - Cohort 09.</div>";
+        $statusMsg = "<div class='alert alert-danger'>Enter a class name starting with UG - or PG -, such as UG - Cohort 09.</div>";
     } else {
         $checkQuery = mysqli_query($conn, "SELECT Id FROM tblclass WHERE className = '" . mysqli_real_escape_string($conn, $className) . "'");
 
         if (!$checkQuery) {
-            $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>Unable to check whether this class already exists.</div>";
+            $statusMsg = "<div class='alert alert-danger'>Unable to check whether this class already exists.</div>";
         } elseif (mysqli_num_rows($checkQuery) > 0) {
-            $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>This Class Already Exists!</div>";
+            $statusMsg = "<div class='alert alert-danger'>This Class Already Exists!</div>";
         } else {
             $query = mysqli_query($conn, "INSERT INTO tblclass(className) VALUES ('$className')");
             $statusMsg = $query
-                ? "<div class='alert alert-success' style='margin-right:700px;'>Created Successfully!</div>"
-                : "<div class='alert alert-danger' style='margin-right:700px;'>An error occurred while creating the class.</div>";
+                ? "<div class='alert alert-success'>Created Successfully!</div>"
+                : "<div class='alert alert-danger'>An error occurred while creating the class.</div>";
         }
     }
 }
@@ -46,15 +46,15 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "edit") {
         $className = trim($_POST['className'] ?? '');
 
         if (!preg_match('/^(UG|PG)\s+-\s+\S.+$/', $className)) {
-            $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>Enter a class name starting with UG - or PG -.</div>";
+            $statusMsg = "<div class='alert alert-danger'>Enter a class name starting with UG - or PG -.</div>";
         } else {
             $escapedClassName = mysqli_real_escape_string($conn, $className);
             $duplicateQuery = mysqli_query($conn, "SELECT Id FROM tblclass WHERE className = '$escapedClassName' AND Id != '$Id'");
 
             if (!$duplicateQuery) {
-                $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>Unable to check whether this class already exists.</div>";
+                $statusMsg = "<div class='alert alert-danger'>Unable to check whether this class already exists.</div>";
             } elseif (mysqli_num_rows($duplicateQuery) > 0) {
-                $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>This Class Already Exists!</div>";
+                $statusMsg = "<div class='alert alert-danger'>This Class Already Exists!</div>";
             } else {
                 $query = mysqli_query($conn, "UPDATE tblclass SET className='$escapedClassName' WHERE Id='$Id'");
                 $updateSucceeded = (bool)$query;
@@ -64,7 +64,7 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "edit") {
         if ($updateSucceeded) {
             echo "<script>window.location = ('createClass.php');</script>";
         } elseif (!isset($statusMsg)) {
-            $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>An error occurred while updating the class.</div>";
+            $statusMsg = "<div class='alert alert-danger'>An error occurred while updating the class.</div>";
         }
     }
 }
@@ -86,7 +86,7 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "edit") {
         }
         else{
 
-            $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>An error Occurred!</div>"; 
+            $statusMsg = "<div class='alert alert-danger'>An error Occurred!</div>"; 
          }
       
   }
@@ -104,10 +104,11 @@ if (isset($_GET['Id']) && isset($_GET['action']) && $_GET['action'] == "edit") {
   <meta name="description" content="">
   <meta name="author" content="">
   <link href="img/logo/attnlg.jpg" rel="icon">
-<?php include 'includes/title.php';?>
+<?php include 'Includes/title.php';?>
   <link href="../vendore/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
   <link href="../vendore/bootstrap/css/bootstrap.min.css" rel="stylesheet" type="text/css">
   <link href="css/ruang-admin.min.css" rel="stylesheet">
+  <link href="css/admin-compact.css" rel="stylesheet">
 </head>
 
 <body id="page-top">

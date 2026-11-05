@@ -1,6 +1,31 @@
 <?php
-include 'Includes/dbcon.php';
 session_start();
+
+$loginRole = isset($_GET['role']) && is_string($_GET['role']) ? $_GET['role'] : '';
+$loginRoles = ['Administrator', 'ClassTeacher', 'Student'];
+$attendanceToken = $_GET['token'] ?? '';
+$isAttendanceLanding = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET'
+    && ($_GET['attendance'] ?? '') === '1'
+    && is_string($attendanceToken)
+    && preg_match('/\A[a-f0-9]{64}\z/i', $attendanceToken);
+
+if ($isAttendanceLanding) {
+    $_SESSION['attendancePendingToken'] = strtolower($attendanceToken);
+    unset($_SESSION['attendancePendingResult']);
+    if (($_SESSION['userType'] ?? '') === 'Student' && !empty($_SESSION['userId'])) {
+        header('Location: Student/markAttendance.php?token=' . rawurlencode(strtolower($attendanceToken)));
+        exit;
+    }
+}
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET'
+    && !in_array($loginRole, $loginRoles, true)) {
+    require __DIR__ . '/landing.php';
+    exit;
+}
+
+include 'Includes/dbcon.php';
+ob_start();
 
 // Function to get the real dates for each day of the week for the current week
 function getDatesForCurrentWeek() {
@@ -279,6 +304,44 @@ if ($table_check && $table_check->num_rows > 0) {
             color: #a0adb5;
         }
 
+        .password-field-group {
+            position: relative;
+            display: flex;
+            align-items: stretch;
+            width: 100%;
+        }
+
+        .password-field-group .form-control {
+            padding-right: 42px !important;
+        }
+
+        .password-toggle-btn {
+            position: absolute;
+            right: 1px;
+            top: 1px;
+            bottom: 1px;
+            width: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            color: #71818c;
+            cursor: pointer;
+            z-index: 5;
+            border-radius: 0 9px 9px 0;
+            transition: color 0.15s ease;
+        }
+
+        .password-toggle-btn:hover {
+            color: #168579;
+        }
+
+        .password-toggle-btn:focus {
+            outline: 2px solid #168579;
+            outline-offset: -2px;
+        }
+
         .login-page .btn-login {
             width: 100%;
             min-height: 48px;
@@ -410,236 +473,222 @@ if ($table_check && $table_check->num_rows > 0) {
             </header>
 
             <form method="POST" action="">
+                <?php if (!empty($_SESSION['attendancePendingToken'])): ?>
+                    <div class="alert alert-info" role="status">
+                        Sign in as a student to complete your attendance scan.
+                    </div>
+                <?php endif; ?>
                 <fieldset class="form-group role-field">
                     <legend>I am signing in as</legend>
                     <div class="role-options">
                         <label class="role-choice">
-                            <input type="radio" name="userType" value="Administrator" required>
+                            <input type="radio" name="userType" value="Administrator" required
+                                <?= $loginRole === 'Administrator' ? 'checked' : '' ?>>
                             <span>Administrator</span>
                         </label>
                         <label class="role-choice">
-                            <input type="radio" name="userType" value="ClassTeacher" required>
+                            <input type="radio" name="userType" value="ClassTeacher" required
+                                <?= $loginRole === 'ClassTeacher' ? 'checked' : '' ?>>
                             <span>Class Teacher</span>
                         </label>
                         <label class="role-choice">
-                            <input type="radio" name="userType" value="Student" required>
+                            <input type="radio" name="userType" value="Student" required
+                                <?= $loginRole === 'Student' || !empty($_SESSION['attendancePendingToken']) ? 'checked' : '' ?>>
                             <span>Student</span>
                         </label>
                     </div>
                 </fieldset>
 
                 <div class="form-group">
-                    <label for="exampleInputEmail">Username or admission number</label>
+                    <label for="exampleInputEmail">Username, student name, or admission number</label>
                     <input type="text" class="form-control" required name="username"
-                           id="exampleInputEmail" placeholder="Enter your username">
+                           id="exampleInputEmail" placeholder="Enter username or student full name/admission number">
                 </div>
 
                 <div class="form-group">
                     <label for="exampleInputPassword">Password</label>
-                    <input type="password" name="password" required class="form-control"
-                           id="exampleInputPassword" placeholder="Enter your password">
+                    <div class="password-field-group">
+                        <input type="password" name="password" required class="form-control"
+                               id="exampleInputPassword" placeholder="Enter your password">
+                        <button type="button" class="password-toggle-btn" aria-label="Show password" title="Show password" tabindex="0">
+                            <i class="fas fa-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <button type="submit" class="btn btn-login" name="login">Sign in</button>
             </form>
 
 <?php
-date_default_timezone_set('Africa/Casablanca');
-
 if (isset($_POST['login'])) {
     $userType = isset($_POST['userType']) ? (string)$_POST['userType'] : '';
     $username = trim(isset($_POST['username']) ? (string)$_POST['username'] : '');
     $passwordInput = isset($_POST['password']) ? (string)$_POST['password'] : '';
-
-    // Keep plain-text comparison for existing teacher and student accounts.
-    $password = $passwordInput;
 
     if (!in_array($userType, ['Administrator', 'ClassTeacher', 'Student'], true)
         || $username === '' || $passwordInput === '') {
 
         echo "<div class='alert alert-danger' role='alert'>Please select a role and enter your login details.</div>";
 
-    } elseif ($userType == "Administrator") {
+    } elseif ($userType === "Administrator") {
 
-        // ADMINISTRATOR ONLY: compare the MD5 hash with tbladmin.password.
-        $adminPassword = md5($passwordInput);
-        $stmt = $conn->prepare(
-            "SELECT * FROM tbladmin WHERE emailAddress = ? AND password = ?"
-        );
-        $stmt->bind_param("ss", $username, $adminPassword);
+        $stmt = $conn->prepare("SELECT * FROM tbladmin WHERE LOWER(TRIM(emailAddress)) = LOWER(?)");
+        $stmt->bind_param("s", $username);
         $stmt->execute();
         $rs = $stmt->get_result();
-
-        if ($rs === false) {
-            die("Error: " . $conn->error);
-        }
-
-        $num = $rs->num_rows;
-        $rows = $rs->fetch_assoc();
-
-        if (!isset($_SESSION['login_attempts'])) {
-            $_SESSION['login_attempts'] = 1;
-        } else {
-            $_SESSION['login_attempts']++;
-        }
-
-        if ($num > 0) {
-            $_SESSION['login_attempts'] = 0;
-            $_SESSION['userId'] = $rows['Id'];
-            $_SESSION['firstName'] = $rows['firstName'];
-            $_SESSION['lastName'] = $rows['lastName'];
-            $_SESSION['emailAddress'] = $rows['emailAddress'];
-
-            echo '<script>window.location = "Admin/index.php";</script>';
-        } else {
-            $max_login_attempts = 2;
-
-            if ($_SESSION['login_attempts'] >= $max_login_attempts) {
-                echo "<div class='alert alert-danger' role='alert'>
-                      Too many incorrect login attempts.</div>
-                      <div class='mt-3'>
-                      <a href='forgotPassword.php' class='btn btn-success'>Forgot Password?</a>
-                      </div>";
-            } else {
-                echo "<div class='alert alert-danger' role='alert'>
-                      Invalid Username/Password!</div>";
-
-                if ($_SESSION['login_attempts'] === 2) {
-                    echo "<div class='mt-3'>
-                          <a href='forgotPassword.php' class='btn btn-success'>Forgot Password?</a>
-                          </div>";
-                }
-            }
-        }
-
-    
-    } elseif ($userType == "ClassTeacher") {
-
-        // Teacher login: support plain-text and MD5 passwords.
-        $teacherPasswordPlain = $passwordInput;
-        $teacherPasswordMD5 = md5($passwordInput);
-
-        $query = "SELECT * FROM tblclassteacher
-                  WHERE emailAddress = ?
-                  AND (password = ? OR password = ?)";
-
-        $stmt = $conn->prepare($query);
-        $stmt->bind_param(
-            "sss",
-            $username,
-            $teacherPasswordPlain,
-            $teacherPasswordMD5
-        );
-        $stmt->execute();
-        $rs = $stmt->get_result();
-
-        if ($rs === false) {
-            die("Error: " . $conn->error);
-        }
-
-        $num = $rs->num_rows;
-        $rows = $rs->fetch_assoc();
+        $admin = $rs ? $rs->fetch_assoc() : null;
         $stmt->close();
 
-        if ($num > 0) {
-            $teacherId = $rows['Id'];
-
-            $_SESSION['userId'] = $rows['Id'];
-            $_SESSION['firstName'] = $rows['firstName'];
-            $_SESSION['lastName'] = $rows['lastName'];
-            $_SESSION['emailAddress'] = $rows['emailAddress'];
-            $_SESSION['classId'] = $rows['classId'];
-            $_SESSION['classArmId'] = $rows['classArmId'];
-
-            $currentTime = date('H:i:s');
-            $day_name = date('l');
-
-            $timeCheckQuery = "SELECT * FROM tblsessionterm
-                               WHERE teacher_id = ?
-                               AND isActive = '1'
-                               AND day_name = ?";
-
-            $timeCheckStmt = $conn->prepare($timeCheckQuery);
-            $timeCheckStmt->bind_param("is", $teacherId, $day_name);
-            $timeCheckStmt->execute();
-            $timeCheckRs = $timeCheckStmt->get_result();
-
-            if ($timeCheckRs->num_rows > 0) {
-                $validSession = false;
-
-                while ($row = $timeCheckRs->fetch_assoc()) {
-                    $startTime = $row['startTime'];
-                    $endTime = $row['endTime'];
-
-                    if ($startTime < $endTime) {
-                        if ($currentTime >= $startTime &&
-                            $currentTime <= $endTime) {
-                            $validSession = true;
-                            break;
-                        }
-                    } else {
-                        // Handles sessions that cross midnight.
-                        if ($currentTime >= $startTime ||
-                            $currentTime <= $endTime) {
-                            $validSession = true;
-                            break;
-                        }
-                    }
-                }
-
-                $timeCheckStmt->close();
-
-                if ($validSession) {
-                    echo '<script>window.location = "ClassTeacher/index.php";</script>';
-                } else {
-                    echo "<div class='alert alert-danger' role='alert'>
-                          Password accepted, but it is not the time of any
-                          of your sessions. Current time: "
-                          . htmlspecialchars($currentTime, ENT_QUOTES, 'UTF-8')
-                          . "</div>";
-                }
-            } else {
-                $timeCheckStmt->close();
-
-                echo "<div class='alert alert-danger' role='alert'>
-                      Password accepted, but no active session was found
-                      for today.</div>";
+        $validAdmin = false;
+        if ($admin) {
+            if (password_verify($passwordInput, $admin['password'])) {
+                $validAdmin = true;
+            } elseif ($admin['password'] === md5($passwordInput) || $admin['password'] === $passwordInput) {
+                $validAdmin = true;
+                // Upgrade password to modern password_hash
+                $newHash = password_hash($passwordInput, PASSWORD_DEFAULT);
+                $upStmt = $conn->prepare("UPDATE tbladmin SET password = ? WHERE Id = ?");
+                $upStmt->bind_param("si", $newHash, $admin['Id']);
+                $upStmt->execute();
+                $upStmt->close();
             }
-        } else {
-            echo "<div class='alert alert-danger' role='alert'>
-                  Invalid teacher email or password!</div>";
         }
 
-    } elseif ($userType == "Student") {
+        if ($validAdmin) {
+            session_regenerate_id(true);
+            $_SESSION['userId'] = $admin['Id'];
+            $_SESSION['userType'] = 'Administrator';
+            $_SESSION['firstName'] = $admin['firstName'];
+            $_SESSION['lastName'] = $admin['lastName'];
+            $_SESSION['emailAddress'] = $admin['emailAddress'];
 
+            unset($_SESSION['attendancePendingToken']);
+            unset($_SESSION['attendancePendingResult']);
+            echo '<script>window.location = "Admin/index.php";</script>';
+            exit();
+        } else {
+            echo "<div class='alert alert-danger' role='alert'>Invalid Username/Password!</div>";
+        }
 
-        // STUDENT LOGIN: unchanged
-        $stmt = $conn->prepare(
-            "SELECT * FROM tblstudents WHERE admissionNumber = ? AND password = ?"
-        );
-        $stmt->bind_param("ss", $username, $password);
+    } elseif ($userType === "ClassTeacher") {
+
+        $stmt = $conn->prepare("SELECT * FROM tblclassteacher WHERE LOWER(TRIM(emailAddress)) = LOWER(?)");
+        $stmt->bind_param("s", $username);
         $stmt->execute();
         $rs = $stmt->get_result();
+        $teacher = $rs ? $rs->fetch_assoc() : null;
+        $stmt->close();
 
-        if ($rs === false) {
-            die("Error: " . $conn->error);
+        $validTeacher = false;
+        if ($teacher) {
+            if (password_verify($passwordInput, $teacher['password'])) {
+                $validTeacher = true;
+            } elseif ($teacher['password'] === md5($passwordInput) || $teacher['password'] === $passwordInput) {
+                $validTeacher = true;
+                // Upgrade password to modern password_hash
+                $newHash = password_hash($passwordInput, PASSWORD_DEFAULT);
+                $upStmt = $conn->prepare("UPDATE tblclassteacher SET password = ? WHERE Id = ?");
+                $upStmt->bind_param("si", $newHash, $teacher['Id']);
+                $upStmt->execute();
+                $upStmt->close();
+            }
         }
 
-        $num = $rs->num_rows;
-        $rows = $rs->fetch_assoc();
+        if ($validTeacher) {
+            session_regenerate_id(true);
+            $_SESSION['userId'] = $teacher['Id'];
+            $_SESSION['userType'] = 'ClassTeacher';
+            $_SESSION['firstName'] = $teacher['firstName'];
+            $_SESSION['lastName'] = $teacher['lastName'];
+            $_SESSION['emailAddress'] = $teacher['emailAddress'];
+            $_SESSION['classId'] = $teacher['classId'];
+            $_SESSION['classArmId'] = $teacher['classArmId'];
 
-        if ($num > 0) {
-            $_SESSION['userId'] = $rows['Id'];
-            $_SESSION['firstName'] = $rows['firstName'];
-            $_SESSION['lastName'] = $rows['lastName'];
-            $_SESSION['emailAddress'] = $rows['emailAddress'];
-            $_SESSION['classId'] = $rows['classId'];
-            $_SESSION['classArmId'] = $rows['classArmId'];
-
-            echo '<script>window.location = "Student/index.php";</script>';
+            unset($_SESSION['attendancePendingToken']);
+            unset($_SESSION['attendancePendingResult']);
+            echo '<script>window.location = "ClassTeacher/index.php";</script>';
+            exit();
         } else {
-            echo "<div class='alert alert-danger' role='alert'>
-                  Invalid Admission Number/Password!</div>";
+            echo "<div class='alert alert-danger' role='alert'>Invalid teacher email or password!</div>";
+        }
+
+    } elseif ($userType === "Student") {
+
+        $stmt = $conn->prepare("SELECT * FROM tblstudents WHERE TRIM(admissionNumber) = ?");
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $rs = $stmt->get_result();
+        $student = $rs ? $rs->fetch_assoc() : null;
+        $stmt->close();
+
+        $studentCandidates = $student ? [$student] : [];
+        if (!$student) {
+            $stmt = $conn->prepare(
+                "SELECT * FROM tblstudents
+                 WHERE LOWER(TRIM(CONCAT(firstName, ' ', lastName))) = LOWER(?)"
+            );
+            $stmt->bind_param("s", $username);
+            $stmt->execute();
+            $rs = $stmt->get_result();
+            if ($rs) {
+                while ($candidate = $rs->fetch_assoc()) {
+                    $studentCandidates[] = $candidate;
+                }
+            }
+            $stmt->close();
+        }
+
+        $matchingStudents = [];
+        foreach ($studentCandidates as $candidate) {
+            $passwordMatches = password_verify($passwordInput, $candidate['password'])
+                || $candidate['password'] === md5($passwordInput)
+                || $candidate['password'] === $passwordInput;
+            if ($passwordMatches) {
+                $matchingStudents[] = $candidate;
+            }
+        }
+
+        $student = count($matchingStudents) === 1 ? $matchingStudents[0] : null;
+        $validStudent = $student !== null;
+        if ($validStudent) {
+            if (!password_verify($passwordInput, $student['password'])) {
+                // Upgrade legacy plaintext or MD5 passwords after a successful login.
+                $newHash = password_hash($passwordInput, PASSWORD_DEFAULT);
+                $upStmt = $conn->prepare("UPDATE tblstudents SET password = ? WHERE Id = ?");
+                $upStmt->bind_param("si", $newHash, $student['Id']);
+                $upStmt->execute();
+                $upStmt->close();
+            }
+
+            session_regenerate_id(true);
+            $_SESSION['userId'] = $student['Id'];
+            $_SESSION['userType'] = 'Student';
+            $_SESSION['firstName'] = $student['firstName'];
+            $_SESSION['lastName'] = $student['lastName'];
+            $_SESSION['admissionNumber'] = $student['admissionNumber'];
+            $_SESSION['classId'] = $student['classId'];
+            $_SESSION['classArmId'] = $student['classArmId'];
+
+            $pendingAttendanceToken = $_SESSION['attendancePendingToken'] ?? '';
+            if (is_string($pendingAttendanceToken)
+                && preg_match('/\A[a-f0-9]{64}\z/i', $pendingAttendanceToken)) {
+                $pendingAttendanceResult = $_SESSION['attendancePendingResult'] ?? '';
+                unset($_SESSION['attendancePendingToken']);
+                unset($_SESSION['attendancePendingResult']);
+                $redirectUrl = 'Student/markAttendance.php?token=' . rawurlencode($pendingAttendanceToken);
+                if ($pendingAttendanceResult === 'success') {
+                    $redirectUrl .= '&result=success';
+                } else {
+                    $redirectUrl .= '&auto=1';
+                }
+            } else {
+                unset($_SESSION['attendancePendingResult']);
+                $redirectUrl = 'Student/index.php';
+            }
+            echo '<script>window.location = ' . json_encode($redirectUrl) . ';</script>';
+            exit();
+        } else {
+            echo "<div class='alert alert-danger' role='alert'>Invalid student name/admission number or password. If multiple students share a name, use the admission number.</div>";
         }
     }
 }
@@ -653,5 +702,6 @@ if (isset($_POST['login'])) {
 <script src="vendore/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="vendore/jquery-easing/jquery.easing.min.js"></script>
 <script src="js/ruang-admin.min.js?v=2"></script>
+<script src="js/password-toggle.js"></script>
 </body>
 </html>

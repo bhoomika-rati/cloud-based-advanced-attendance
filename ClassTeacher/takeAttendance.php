@@ -5,40 +5,47 @@ error_reporting(0);
 include '../Includes/dbcon.php';
 include '../Includes/session.php';
 
-// Get class and class arm details
-$query = "SELECT tblclass.className, tblclassarms.classArmName 
-          FROM tblclassteacher
-          INNER JOIN tblclass ON tblclass.Id = tblclassteacher.classId
-          INNER JOIN tblclassarms ON tblclassarms.Id = tblclassteacher.classArmId
-          WHERE tblclassteacher.Id = ?";
-$stmt = $conn->prepare($query);
-$stmt->bind_param("s", $_SESSION['userId']);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$stmt->close();
+$teacherId = isset($_SESSION['userId']) ? $_SESSION['userId'] : null;
+$row = null;
+if ($teacherId) {
+    $query = "SELECT tblclass.className, tblclassarms.classArmName, tblclassteacher.classId, tblclassteacher.classArmId
+              FROM tblclassteacher
+              INNER JOIN tblclass ON tblclass.Id = tblclassteacher.classId
+              INNER JOIN tblclassarms ON tblclassarms.Id = tblclassteacher.classArmId
+              WHERE tblclassteacher.Id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("s", $teacherId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
+}
 
-// Store class ID, class arm ID, and teacher ID in variables
-$classId = $row['class_id'];
-$classArmId = $row['class_arm_id'];
-$teacherId = $_SESSION['userId'];
-// Session and Term
-$querySessionTerm = "SELECT * FROM tblsessionterm WHERE isActive ='1' AND teacher_id = ?";
-$stmtSessionTerm = $conn->prepare($querySessionTerm);
-$stmtSessionTerm->bind_param("s", $teacherId);
-$stmtSessionTerm->execute();
-$resultSessionTerm = $stmtSessionTerm->get_result();
-$rowSessionTerm = $resultSessionTerm->fetch_assoc();
-$sessionTermId = $rowSessionTerm['Id'];
-$stmtSessionTerm->close();
+$classId = $row['classId'] ?? ($_SESSION['classId'] ?? null);
+$classArmId = $row['classArmId'] ?? ($_SESSION['classArmId'] ?? null);
 
+$sessionTermId = null;
+if ($teacherId) {
+    $querySessionTerm = "SELECT * FROM tblsessionterm WHERE isActive = 1 AND teacher_id = ? ORDER BY Id DESC LIMIT 1";
+    $stmtSessionTerm = $conn->prepare($querySessionTerm);
+    $stmtSessionTerm->bind_param("s", $teacherId);
+    $stmtSessionTerm->execute();
+    $resultSessionTerm = $stmtSessionTerm->get_result();
+    $rowSessionTerm = $resultSessionTerm->fetch_assoc();
+    $sessionTermId = $rowSessionTerm['Id'] ?? null;
+    $stmtSessionTerm->close();
+}
 
 $dateTaken = date("Y-m-d");
-
-$statusMsg = "";
+if (!$row || !$sessionTermId) {
+    $statusMsg = "<div class='alert alert-warning' style='margin-right:700px;'>No active class session is assigned to this teacher. Please contact the administrator.</div>";
+}
 
 // Check if the form was submitted
 if (isset($_POST['save'])) {
+    if (!$classId || !$classArmId || !$sessionTermId) {
+        $statusMsg = "<div class='alert alert-warning' style='margin-right:700px;'>This teacher is not assigned to a valid class or active session.</div>";
+    } else {
     // Check if attendance has already been taken for the current date and class
     $checkQuery = "SELECT COUNT(*) AS attendance_count FROM tblattendance WHERE classId = ? AND classArmId = ? AND DATE(dateTimeTaken) = ?";
     $checkStmt = $conn->prepare($checkQuery);
@@ -79,6 +86,7 @@ if (isset($_POST['save'])) {
             // If admission numbers are not submitted, show an error message
             $statusMsg = "<div class='alert alert-danger' style='margin-right:700px;'>No students selected.</div>";
         }
+    }
     }
 }
 ?>
@@ -211,11 +219,10 @@ if (isset($_POST['save'])) {
     <!-- Logout Modal-->
     <?php include "Includes/logout-modal.php"; ?>
 
-    <script src="../vendor/jquery/jquery.min.js"></script>
-    <script src="../vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-    <script src="../vendor/jquery-easing/jquery.easing.min.js"></script>
+    <script src="../vendore/jquery/jquery.min.js"></script>
+    <script src="../vendore/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="../vendore/jquery-easing/jquery.easing.min.js"></script>
     <script src="../js/ruang-admin.min.js"></script>
-    <script src="../vendor/chart.js/Chart.min.js"></script>
     <script src="../js/demo/chart-area-demo.js"></script>
 
 </body>

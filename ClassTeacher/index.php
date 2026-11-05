@@ -198,8 +198,6 @@ $numSessions = $rowSessions['numSessions'];
 <script src="../vendore/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="../vendore/jquery-easing/jquery.easing.min.js"></script>
 <script src="js/ruang-admin.min.js"></script>
-<script src="../vendore/chart.js/Chart.min.js"></script>
-<script src="js/demo/chart-area-demo.js"></script>  
 </body>
 
 </html>

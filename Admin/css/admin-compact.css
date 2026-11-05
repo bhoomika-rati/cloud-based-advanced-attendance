@@ -1,0 +1,441 @@
+/* ==========================================================================
+   Attendly AMS - Modern Compact Admin Theme & Reusable Utilities
+   ========================================================================== */
+
+:root {
+    --aa-primary: #1e4da1;
+    --aa-primary-hover: #183e84;
+    --aa-primary-soft: #eaf1fb;
+    --aa-success: #138858;
+    --aa-success-soft: #e4f7ee;
+    --aa-danger: #c92a2a;
+    --aa-danger-soft: #fde8e8;
+    --aa-warning: #d97706;
+    --aa-warning-soft: #fef3c7;
+    --aa-info: #0284c7;
+    --aa-info-soft: #e0f2fe;
+    --aa-text-dark: #1e293b;
+    --aa-text-muted: #64748b;
+    --aa-border: #e2e8f0;
+    --aa-bg-page: #f1f5f9;
+    --aa-bg-card: #ffffff;
+}
+
+/* Page Spacing Compaction */
+body, #content-wrapper {
+    background-color: var(--aa-bg-page);
+    color: var(--aa-text-dark);
+}
+
+#container-wrapper {
+    padding: 1.25rem 1.25rem 2rem !important;
+}
+
+/* Compact Headings and Breadcrumbs */
+.d-sm-flex.align-items-center.justify-content-between.mb-4 {
+    margin-bottom: 1rem !important;
+}
+
+h1.h3, .h3 {
+    font-size: 1.35rem !important;
+    font-weight: 700 !important;
+    color: var(--aa-text-dark) !important;
+    margin-bottom: 0.15rem !important;
+}
+
+.breadcrumb {
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    font-size: 0.8rem !important;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+    content: "›";
+    padding: 0 0.35rem;
+    color: #94a3b8;
+}
+
+/* Compact Cards */
+.card {
+    border: 1px solid var(--aa-border) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04) !important;
+    margin-bottom: 1.15rem !important;
+    background: var(--aa-bg-card);
+}
+
+.card-header {
+    padding: 0.65rem 1rem !important;
+    background-color: #fff !important;
+    border-bottom: 1px solid var(--aa-border) !important;
+}
+
+.card-header h6 {
+    font-size: 0.88rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em;
+}
+
+.card-body {
+    padding: 1rem !important;
+}
+
+/* Compact Forms & Form Controls */
+.form-group {
+    margin-bottom: 0.75rem !important;
+}
+
+.form-group.row.mb-3 {
+    margin-bottom: 0.5rem !important;
+}
+
+.form-control-label, label {
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    color: #334155 !important;
+    margin-bottom: 0.25rem !important;
+    display: inline-block;
+}
+
+.form-control {
+    height: 36px !important;
+    padding: 0.35rem 0.65rem !important;
+    font-size: 0.84rem !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    color: #1e293b !important;
+    background-color: #fff !important;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus {
+    border-color: var(--aa-primary) !important;
+    box-shadow: 0 0 0 3px rgba(30, 77, 161, 0.12) !important;
+}
+
+select.form-control {
+    padding-right: 1.5rem !important;
+}
+
+textarea.form-control {
+    height: auto !important;
+}
+
+/* Compact Buttons */
+.btn {
+    font-size: 0.82rem !important;
+    font-weight: 600 !important;
+    padding: 0.35rem 0.8rem !important;
+    border-radius: 6px !important;
+    line-height: 1.4 !important;
+    transition: all 0.15s ease;
+}
+
+.btn-sm {
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.55rem !important;
+}
+
+.btn-primary {
+    background-color: var(--aa-primary) !important;
+    border-color: var(--aa-primary) !important;
+}
+
+.btn-primary:hover, .btn-primary:focus {
+    background-color: var(--aa-primary-hover) !important;
+    border-color: var(--aa-primary-hover) !important;
+}
+
+/* Standardized Compact Alerts (Overriding previous 700px inline margins) */
+.alert {
+    padding: 0.55rem 0.85rem !important;
+    font-size: 0.82rem !important;
+    border-radius: 6px !important;
+    margin-bottom: 0.75rem !important;
+    margin-right: 0 !important;
+    display: flex;
+    align-items: center;
+    border-width: 1px;
+}
+
+.alert-success {
+    background-color: var(--aa-success-soft) !important;
+    border-color: #a7f3d0 !important;
+    color: var(--aa-success) !important;
+}
+
+.alert-danger {
+    background-color: var(--aa-danger-soft) !important;
+    border-color: #fecaca !important;
+    color: var(--aa-danger) !important;
+}
+
+.alert-warning {
+    background-color: var(--aa-warning-soft) !important;
+    border-color: #fde68a !important;
+    color: #92400e !important;
+}
+
+.alert-info {
+    background-color: var(--aa-info-soft) !important;
+    border-color: #bae6fd !important;
+    color: var(--aa-info) !important;
+}
+
+/* Compact Tables */
+.table-responsive {
+    padding: 0.75rem 1rem !important;
+}
+
+.table {
+    margin-bottom: 0 !important;
+    font-size: 0.82rem !important;
+    color: #1e293b;
+}
+
+.table thead th {
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #475569 !important;
+    background-color: #f8fafc !important;
+    border-bottom: 1px solid var(--aa-border) !important;
+    padding: 0.5rem 0.65rem !important;
+    white-space: nowrap;
+}
+
+.table tbody td {
+    padding: 0.5rem 0.65rem !important;
+    vertical-align: middle !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #f8fafc !important;
+}
+
+/* DataTables Compaction */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+    font-size: 0.8rem !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+    height: 30px !important;
+    padding: 0.2rem 0.5rem !important;
+    font-size: 0.8rem !important;
+    border-radius: 4px !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate {
+    font-size: 0.78rem !important;
+    margin-top: 0.5rem !important;
+}
+
+.dataTables_wrapper .paginate_button {
+    padding: 0.2rem 0.5rem !important;
+    font-size: 0.78rem !important;
+}
+
+/* ==========================================================================
+   Show / Hide Password Visibility Component
+   ========================================================================== */
+.password-field-group {
+    position: relative !important;
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+}
+
+.password-field-group .form-control {
+    padding-right: 2.5rem !important;
+}
+
+.password-toggle-btn {
+    position: absolute;
+    right: 1px;
+    top: 1px;
+    bottom: 1px;
+    width: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    z-index: 4;
+    border-radius: 0 5px 5px 0;
+    transition: color 0.15s ease;
+}
+
+.password-toggle-btn:hover {
+    color: var(--aa-primary);
+}
+
+.password-toggle-btn:focus {
+    outline: 2px solid var(--aa-primary);
+    outline-offset: -2px;
+}
+
+/* ==========================================================================
+   Weekly Timetable Component Styling
+   ========================================================================== */
+.timetable-container {
+    background: #fff;
+    border: 1px solid var(--aa-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.timetable-toolbar {
+    padding: 0.75rem 1rem;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--aa-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+
+.timetable-filters {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.timetable-filters select {
+    min-width: 130px;
+    height: 32px !important;
+    font-size: 0.78rem !important;
+}
+
+.timetable-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(170px, 1fr));
+    gap: 1px;
+    background-color: var(--aa-border);
+    overflow-x: auto;
+}
+
+.timetable-day-col {
+    background-color: #fff;
+    min-height: 480px;
+    display: flex;
+    flex-direction: column;
+}
+
+.timetable-day-header {
+    background-color: #f8fafc;
+    border-bottom: 2px solid var(--aa-border);
+    padding: 0.55rem 0.65rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #334155;
+    text-align: center;
+}
+
+.timetable-day-header.is-today {
+    background-color: var(--aa-primary-soft);
+    color: var(--aa-primary);
+    border-bottom-color: var(--aa-primary);
+}
+
+.timetable-day-slots {
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    flex-grow: 1;
+}
+
+.timetable-slot-card {
+    background-color: #fff;
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid var(--aa-primary);
+    border-radius: 5px;
+    padding: 0.45rem 0.55rem;
+    font-size: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.timetable-slot-card:hover {
+    box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
+}
+
+.slot-time {
+    font-weight: 700;
+    color: #1e4da1;
+    font-size: 0.72rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.2rem;
+}
+
+.slot-subject {
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #0f172a;
+    line-height: 1.2;
+    margin-bottom: 0.2rem;
+}
+
+.slot-meta {
+    font-size: 0.72rem;
+    color: #64748b;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.slot-actions {
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px dashed #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.3rem;
+}
+
+.slot-badge {
+    display: inline-block;
+    padding: 0.1rem 0.35rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    border-radius: 3px;
+    text-transform: uppercase;
+}
+
+.slot-badge-lecture { background-color: #e0f2fe; color: #0369a1; }
+.slot-badge-lab     { background-color: #fef3c7; color: #b45309; }
+.slot-badge-tutorial{ background-color: #f3e8ff; color: #7e22ce; }
+.slot-badge-course  { background-color: #e0e7ff; color: #4338ca; }
+
+.timetable-empty-state {
+    padding: 3rem 1.5rem;
+    text-align: center;
+    color: #94a3b8;
+}
+
+.timetable-empty-state i {
+    font-size: 2.5rem;
+    color: #cbd5e1;
+    margin-bottom: 0.75rem;
+}
+
+/* Topbar & Sidebar Tweaks */
+.topbar {
+    height: 3.5rem !important;
+    margin-bottom: 1.25rem !important;
+}
+

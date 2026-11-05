@@ -9,7 +9,7 @@
 
 ?>
 <nav class="navbar navbar-expand navbar-light bg-gradient-primary topbar mb-4 static-top">
-          <button id="sidebarToggleTop" class="btn btn-link rounded-circle mr-3">
+          <button id="sidebarToggleTop" class="btn btn-link rounded-circle mr-3" aria-label="Toggle sidebar" type="button">
             <i class="fa fa-bars"></i>
           </button>
         <div class="text-white big" style="margin-left:100px;"></div>

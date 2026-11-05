@@ -78,6 +78,10 @@ $query = "SELECT tblclass.className,tblclassarms.classArmName
               <li class="breadcrumb-item active" aria-current="page">My Students</li>
             </ol>
           </div>
+          <div class="alert alert-info" role="alert">
+            Each active class session creates a unique QR code for every student. The codes expire after 10 minutes.
+            <a href="qrCodeAttendance.php" class="alert-link">Create attendance session and student QR codes</a>.
+          </div>
 
           <div class="row">
             <div class="col-lg-12">
@@ -126,21 +130,21 @@ $query = "SELECT tblclass.className,tblclassarms.classArmName
                             echo"
                               <tr>
                                 <td>".$sn."</td>
-                                <td>".$rows['firstName']."</td>
-                                <td>".$rows['lastName']."</td>
+                                <td>".htmlspecialchars($rows['firstName'], ENT_QUOTES, 'UTF-8')."</td>
+                                <td>".htmlspecialchars($rows['lastName'], ENT_QUOTES, 'UTF-8')."</td>
                                 
-                                <td>".$rows['admissionNumber']."</td>
-                                <td>".$rows['className']."</td>
-                                <td>".$rows['classArmName']."</td>
+                                <td>".htmlspecialchars($rows['admissionNumber'], ENT_QUOTES, 'UTF-8')."</td>
+                                <td>".htmlspecialchars($rows['className'], ENT_QUOTES, 'UTF-8')."</td>
+                                <td>".htmlspecialchars($rows['classArmName'], ENT_QUOTES, 'UTF-8')."</td>
                               </tr>";
                           }
                       }
                       else
                       {
                            echo   
-                           "<div class='alert alert-danger' role='alert'>
+                           "<tr><td colspan='6'><div class='alert alert-danger' role='alert'>
                             No Record Found!
-                            </div>";
+                            </div></td></tr>";
                       }
                       
                       ?>
@@ -178,13 +182,13 @@ $query = "SELECT tblclass.className,tblclassarms.classArmName
     <i class="fas fa-angle-up"></i>
   </a>
 
-  <script src="../vendor/jquery/jquery.min.js"></script>
-  <script src="../vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="../vendor/jquery-easing/jquery.easing.min.js"></script>
+  <script src="../vendore/jquery/jquery.min.js"></script>
+  <script src="../vendore/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="../vendore/jquery-easing/jquery.easing.min.js"></script>
   <script src="js/ruang-admin.min.js"></script>
    <!-- Page level plugins -->
-  <script src="../vendor/datatables/jquery.dataTables.min.js"></script>
-  <script src="../vendor/datatables/dataTables.bootstrap4.min.js"></script>
+  <script src="../vendore/datatables/jquery.dataTables.min.js"></script>
+  <script src="../vendore/datatables/dataTables.bootstrap4.min.js"></script>
 
   <!-- Page level custom scripts -->
   <script>

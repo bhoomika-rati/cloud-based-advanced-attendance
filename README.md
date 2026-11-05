@@ -2,6 +2,10 @@
 
 A comprehensive web-based attendance management system designed for educational institutions to efficiently track and manage student attendance.
 
+## Landing page
+
+The site root opens the responsive Attendly landing page. Its role-specific sign-in links reuse the existing login flows: administrators and students use the shared login page, and faculty use `classTeacherLogin.php`. Update the institution name and contact placeholders in `landing.php` before deployment.
+
 For the complete Admin sidebar guide, including what each page does and step-by-step instructions for adding data, see [admin.md](./admin.md).
 
 ## 🎯 Overview
@@ -109,11 +113,11 @@ The teacher list shows name, email, phone, assigned groups, course, and module, 
 **Create Students** has:
 
 - **Firstname** and **Lastname**.
-- **Admission Number** — unique student identifier and login name.
+- **Admission Number** — unique student identifier and login name. Students can also sign in with their full registered name; use the admission number if names are shared.
 - **Password** — student login password.
 - **Select Class** and **Select Class Arm** — the student's group; group choices load after choosing a class.
 
-Creating a student generates a QR code based on the admission number when the PHP GD extension is enabled. If GD is unavailable, the student is still created and the form displays a notice that the QR image was skipped. The student list shows full name, admission number, class, group, creation date, and edit/delete actions.
+Attendance QR codes are not generated when a student account is created. The class teacher generates a unique, short-lived QR code for each enrolled student when starting an attendance session.
 
 ### Courses and Modules
 
@@ -191,7 +195,7 @@ In database terms, classes and groups are stored in `tblclass` and `tblclassarms
 - **Current Session View**: See students enrolled in the current teaching session
 - **Attendance Management**:
   - Manual attendance marking via checkboxes
-  - QR code-based attendance (students scan to mark presence)
+  - QR code-based attendance (individual student codes for each active session)
   - View class attendance by date
   - View individual student attendance records
 - **Reporting**: Generate daily attendance reports in Excel format
@@ -200,7 +204,7 @@ In database terms, classes and groups are stored in `tblclass` and `tblclassarms
 ### 👨‍🎓 Student Module
 - **Timetable Access**: View personal class schedule
 - **Attendance Statistics**: Track personal attendance records
-- **QR Code Check-in**: Mark attendance by scanning QR code (within first 20 minutes of class)
+- **QR Code Check-in**: Mark attendance by scanning the assigned student QR during the 10-minute session
 
 ## 🛠️ Technologies Used
 
@@ -300,8 +304,29 @@ chmod -R 755 logs/
 
 ## 📱 Key Functionalities
 
+### Student Panel upgrade
+
+The upgraded Student panel uses local Bootstrap 5.3.8 assets from `Student/vendor/bootstrap5/`; Admin, Faculty, and the existing `Student/student_timetable.php` page continue using their existing frontend assets. After the regular attendance and academic schema setup, back up `attendancemsystem` and run `DATABASE FILE/student_panel_schema.sql` to add student contact/profile fields, announcement storage, and attendance correction requests. Existing attendance and QR-session tables are reused.
+
+Announcements appear for the student's class when published records are present in `student_announcements`. Student correction requests are stored as Pending and are read-only to students; review decisions must be made by authorized staff.
+
 ### QR Code Attendance
-Students can mark their attendance by scanning a session-specific QR code within the first 20 minutes of class. Late arrivals are automatically recorded.
+Teachers create a subject-specific attendance session from **QR_Code Attendance**. The teacher's dashboard generates one shared QR code for each session, and students assigned to that class can view every active session, its code, details, and countdown on their dashboards. Each class and subject can have one active session at a time; different subjects may run concurrently. The QR is valid for exactly 10 minutes from session creation. Scanning the faculty QR opens this website's home page in the phone browser—no mobile app is needed. If the student is not signed in, the existing Student sign-in flow preserves the scanned session and records attendance automatically after successful authentication and GPS verification; a signed-in student is checked in automatically. Students do not need to scan a second time. The server verifies the active session, current class assignment, roster membership, and configured college geofence; database uniqueness prevents a second attendance entry. The server records attendance date and time, while the QR session remains linked to its subject and faculty. The faculty dashboard refreshes the roster and total/present/absent/not-marked/location-verified counts automatically, and the attendance also appears in the existing Admin reports and Student history. A teacher may close a session early; remaining students are then marked absent.
+
+The QR URL is generated from the server's `WEBSITE_BASE_URL` environment variable—not the browser host header. For an Internet-accessible deployment, set it to the public HTTPS project URL, including its subdirectory if applicable. For XAMPP, add this line to Apache's configuration (for example, `C:\xampp\apache\conf\extra\httpd-xampp.conf`) and restart Apache:
+
+```apache
+SetEnv WEBSITE_BASE_URL "https://attendance.example.edu/Attendance-Management-System-master"
+SetEnv QR_ATTENDANCE_TOKEN_KEY "BASE64_ENCODED_RANDOM_32_BYTE_SECRET"
+```
+
+Replace the URL with the real domain and deployed project path. Generate the token key once using a cryptographically secure random 32-byte value encoded as Base64 (for example, PHP's `base64_encode(random_bytes(32))`). Keep it private, outside source control, and unchanged across restarts and PHP servers; changing it invalidates current session QR codes. For same-Wi-Fi development, set `WEBSITE_BASE_URL` to the computer's actual private IPv4 address and project path, such as `http://192.168.1.25/Attendance-Management-System-master`. HTTP is accepted only for RFC1918 private IPv4 addresses. Apache must listen on the network interface, Windows Firewall must allow inbound TCP port 80 from the local Wi-Fi subnet, and the phone must be on that same network. Reserve the computer's address in DHCP or update this setting and generate a new QR when the address changes. LAN HTTP is for page access only: Android browser geolocation requires a trusted HTTPS origin, so GPS attendance needs a valid HTTPS website; XAMPP's default self-signed certificate is not sufficient. For mobile data or other networks, deploy this project on a real public HTTPS host with a domain and configure that URL—do not use localhost or a private IP. Hosted Apache control panels may provide environment-variable settings; configure both variables there.
+
+QR scans open the public home page and retain the scanned session through Student sign-in. On first setup, run the additive `DATABASE FILE/qr_attendance_schema.sql` migration, then sign in as Admin and open **QR & GPS Attendance → College Location Settings**. Enter the college's real latitude, longitude, and permitted radius; no sample location or radius is pre-filled, and attendance check-in remains disabled until all three values are configured. Students must allow precise browser location on the HTTPS site. The server validates coordinate ranges and reported accuracy (100 metres or better), calculates the Haversine distance, and records the verified location and distance with the session attendance. This is a location-based check, not protection against GPS spoofing.
+
+To deploy, upload the existing project (including `vendor/`) to PHP 8.x hosting, create a MariaDB/MySQL database, import the project SQL and run `DATABASE FILE/qr_attendance_schema.sql`, configure the database credentials in `Includes/dbcon.php`, configure `WEBSITE_BASE_URL` and `QR_ATTENDANCE_TOKEN_KEY`, and enable HTTPS. Keep Apache/PHP environment secrets and database credentials private; don't publish the database connection file. `endroid/qr-code` is already declared in `composer.json` and installed under `vendor/`; no separate QR package is required. A phone's built-in camera opens the teacher-generated session QR link in the browser; the phone and faculty laptop do not need to share a Wi-Fi network.
+
+After deployment, activate an academic session and add the teacher's subject/class timetable for the current weekday. Test with an enrolled student: generate a 10-minute session, scan the teacher's shared session QR, sign in if prompted, and verify the success confirmation, Student history, and live faculty roster. Scan again to confirm duplicate rejection, then test early closure and expiry. To finalize expired absences even if no dashboard remains open, schedule `php.exe <project-path>\expireQrAttendance.php` to run every minute using the hosting scheduler or Windows Task Scheduler.
 
 ### Smart Login System
 - Teachers can only log in during their scheduled teaching sessions

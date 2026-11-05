@@ -18,8 +18,8 @@ if (isset($_POST['submit'])) {
     } elseif ($password !== $confirm_password) {
         echo "<div class='alert alert-danger' role='alert'>Passwords do not match!</div>";
     } else {
-        // Hash the new password
-        $hashed_password = md5($password); // This is for demonstration; use stronger hashing in production
+        // Hash the new password securely
+        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
         // Update password in database (assuming tbladmin table)
         $email = $_SESSION['email'];
@@ -69,6 +69,7 @@ if (isset($_POST['submit'])) {
     <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
     <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="css/ruang-admin.min.css" rel="stylesheet">
+    <link href="Admin/css/admin-compact.css" rel="stylesheet">
 </head>
 <body class="bg-gradient-login">
     <!-- Login Content -->
@@ -90,10 +91,20 @@ if (isset($_POST['submit'])) {
                                             <input type="text" class="form-control" name="verification_code" placeholder="Enter Verification Code" required>
                                         </div>
                                         <div class="form-group">
-                                            <input type="password" class="form-control" name="password" placeholder="Enter New Password" required>
+                                            <div class="password-field-group">
+                                                <input type="password" class="form-control" name="password" placeholder="Enter New Password" required>
+                                                <button type="button" class="password-toggle-btn" aria-label="Show password" title="Show password" tabindex="0">
+                                                    <i class="fas fa-eye" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div class="form-group">
-                                            <input type="password" class="form-control" name="confirm_password" placeholder="Confirm New Password" required>
+                                            <div class="password-field-group">
+                                                <input type="password" class="form-control" name="confirm_password" placeholder="Confirm New Password" required>
+                                                <button type="button" class="password-toggle-btn" aria-label="Show password" title="Show password" tabindex="0">
+                                                    <i class="fas fa-eye" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div class="form-group">
                                             <input type="submit" class="btn btn-primary btn-block" value="Reset Password" name="submit">
@@ -117,5 +128,6 @@ if (isset($_POST['submit'])) {
     <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
     <script src="js/ruang-admin.min.js"></script>
+    <script src="js/password-toggle.js"></script>
 </body>
 </html>

@@ -6,25 +6,37 @@ include '../Includes/session.php';
 //------------------------SAVE--------------------------------------------------
 
 if (isset($_POST['save'])) {
-  $courseName = $_POST['courseName'];
-  $selectedModules = $_POST['modules']; // Retrieve selected modules
+  $courseName = trim((string)($_POST['courseName'] ?? ''));
+  $courseCode = strtoupper(trim((string)($_POST['courseCode'] ?? '')));
+  $selectedModules = $_POST['modules'] ?? [];
 
-  // Check if the course already exists
-  $query = mysqli_query($conn, "SELECT * FROM course WHERE courseName ='$courseName'");
-  $ret = mysqli_fetch_array($query);
+  $checkStmt = $conn->prepare("SELECT courseId FROM course WHERE courseName = ? OR courseCode = ? LIMIT 1");
+  $checkStmt->bind_param('ss', $courseName, $courseCode);
+  $checkStmt->execute();
+  $ret = $checkStmt->get_result()->fetch_assoc();
+  $checkStmt->close();
 
-  if ($ret > 0) {
-    $statusMsg = "<div id='alertMessage' class='alert alert-danger' style='margin-right:700px;'>This Course Name Already Exists!</div>";
+  if ($courseName === '' || $courseCode === '') {
+    $statusMsg = "<div id='alertMessage' class='alert alert-danger' style='margin-right:700px;'>Enter a course name and unique subject code.</div>";
+  } elseif ($ret) {
+    $statusMsg = "<div id='alertMessage' class='alert alert-danger' style='margin-right:700px;'>This course name or subject code already exists!</div>";
   } else {
-    // Insert the new course into the course table
-    $query = mysqli_query($conn, "INSERT INTO course(courseName) VALUES ('$courseName')");
+    $insertStmt = $conn->prepare("INSERT INTO course(courseName, courseCode) VALUES (?, ?)");
+    $insertStmt->bind_param('ss', $courseName, $courseCode);
+    $query = $insertStmt->execute();
+    $insertStmt->close();
 
-    // Retrieve the ID of the newly inserted course
-    $courseId = mysqli_insert_id($conn);
-
-    // Insert module-course associations into the module_course table
-    foreach ($selectedModules as $moduleId) {
-      mysqli_query($conn, "INSERT INTO module_course(moduleId, courseId) VALUES ($moduleId, $courseId)");
+    if ($query) {
+      $courseId = mysqli_insert_id($conn);
+      $moduleStmt = $conn->prepare("INSERT INTO module_course(moduleId, courseId) VALUES (?, ?)");
+      foreach ($selectedModules as $moduleValue) {
+        $moduleId = filter_var($moduleValue, FILTER_VALIDATE_INT);
+        if ($moduleId) {
+          $moduleStmt->bind_param('ii', $moduleId, $courseId);
+          $moduleStmt->execute();
+        }
+      }
+      $moduleStmt->close();
     }
 
     if ($query) {
@@ -54,21 +66,46 @@ if (isset($_GET['edit'])) {
   //------------UPDATE-----------------------------
 
   if (isset($_POST['update'])) {
-    $courseName = $_POST['courseName'];
-    $selectedModules = $_POST['modules'];
+    $courseUpdated = false;
+    $courseName = trim((string)($_POST['courseName'] ?? ''));
+    $courseCode = strtoupper(trim((string)($_POST['courseCode'] ?? '')));
+    $selectedModules = $_POST['modules'] ?? [];
 
-    // Update course details
-    $query = mysqli_query($conn, "UPDATE course SET courseName='$courseName' WHERE courseId='$courseId'");
+    $checkStmt = $conn->prepare(
+      "SELECT courseId FROM course WHERE (courseName = ? OR courseCode = ?) AND courseId <> ? LIMIT 1"
+    );
+    $checkStmt->bind_param('ssi', $courseName, $courseCode, $courseId);
+    $checkStmt->execute();
+    $duplicate = $checkStmt->get_result()->fetch_assoc();
+    $checkStmt->close();
 
-    // Remove existing module-course associations
-    mysqli_query($conn, "DELETE FROM module_course WHERE courseId='$courseId'");
+    if ($courseName === '' || $courseCode === '' || $duplicate) {
+      $statusMsg = "<div id='alertMessage' class='alert alert-danger' style='margin-right:700px;'>Enter a course name and unique subject code.</div>";
+    } else {
+      $updateStmt = $conn->prepare("UPDATE course SET courseName = ?, courseCode = ? WHERE courseId = ?");
+      $updateStmt->bind_param('ssi', $courseName, $courseCode, $courseId);
+      $query = $updateStmt->execute();
+      $updateStmt->close();
 
-    // Insert new module-course associations
-    foreach ($selectedModules as $moduleId) {
-      mysqli_query($conn, "INSERT INTO module_course(moduleId, courseId) VALUES ($moduleId, $courseId)");
+      if ($query) {
+        $deleteModulesStmt = $conn->prepare("DELETE FROM module_course WHERE courseId = ?");
+        $deleteModulesStmt->bind_param('i', $courseId);
+        $deleteModulesStmt->execute();
+        $deleteModulesStmt->close();
+        $moduleStmt = $conn->prepare("INSERT INTO module_course(moduleId, courseId) VALUES (?, ?)");
+        foreach ($selectedModules as $moduleValue) {
+          $moduleId = filter_var($moduleValue, FILTER_VALIDATE_INT);
+          if ($moduleId) {
+            $moduleStmt->bind_param('ii', $moduleId, $courseId);
+            $moduleStmt->execute();
+          }
+        }
+        $moduleStmt->close();
+        $courseUpdated = true;
+      }
     }
 
-    if ($query) {
+    if ($courseUpdated) {
       $statusMsg = "<div id='alertMessage' class='alert alert-success' style='margin-right:700px;'>Course Updated Successfully!</div>";
       echo "<script>
                 setTimeout(function() {
@@ -155,6 +192,12 @@ if (isset($_GET['delete'])) {
                     </div>
                     <div class="form-group row mb-3">
                       <div class="col-xl-12">
+                        <label class="form-control-label">Subject Code<span class="text-danger ml-2">*</span></label>
+                        <input type="text" class="form-control" name="courseCode" maxlength="50" value="<?php echo htmlspecialchars((string)($courseRow['courseCode'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" required>
+                      </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                      <div class="col-xl-12">
                         <label class="form-control-label">Select Modules<span class="text-danger ml-2">*</span></label>
                         <?php
                         // Retrieve modules from the module table
@@ -196,6 +239,7 @@ if (isset($_GET['delete'])) {
                     <thead class="thead-light">
                       <tr>
                         <th>Course Name</th>
+                        <th>Subject Code</th>
                         <th>Modules</th>
                         <th>Edit</th>
                         <th>Delete</th>
@@ -219,7 +263,8 @@ if (isset($_GET['delete'])) {
 
                           echo "
                                                                                                <tr>
-                                                                                                   <td>" . $rows['courseName'] . "</td>
+                                                                                                   <td>" . htmlspecialchars($rows['courseName'], ENT_QUOTES, 'UTF-8') . "</td>
+                                                                                                   <td>" . htmlspecialchars((string)($rows['courseCode'] ?? ''), ENT_QUOTES, 'UTF-8') . "</td>
                                                                                                    <td>" . $moduleNamesString . "</td>
                                                                                                    <td><a href='?edit=" . $rows['courseId'] . "'><i class='fas fa-fw fa-edit'></i>Edit</a></td>
                                                                                                    <td><a href='?delete=" . $rows['courseId'] . "' onclick='return confirm(\"Are you sure you want to delete this course?\")'><i class='fas fa-fw fa-trash'></i>Delete</a></td>
@@ -228,7 +273,7 @@ if (isset($_GET['delete'])) {
                       } else {
                         echo "
                                                                                            <tr>
-                                                                                           <td colspan='4' class='text-center'>No Record Found!</td>
+                                                                                           <td colspan='5' class='text-center'>No Record Found!</td>
                                                                                            </tr>";
                       }
                       ?>

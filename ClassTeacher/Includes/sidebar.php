@@ -46,7 +46,6 @@
             <h6 class="collapse-header">Manage Attendance</h6>
             <a class="collapse-item" href="takeAttendance.php">Take Attendance</a>
             <a class="collapse-item" href="qrCodeAttendance.php">QR_Code Attendance</a>
-            <a class="collapse-item" href="viewAttendance.php">View Class Attendance</a>
             <a class="collapse-item" href="viewStudentAttendance.php">View Student Attendance</a>
             <a class="collapse-item" href="downloadRecord.php">Today's Report (xls)</a>
             <!-- <a class="collapse-item" href="addMemberToContLevel.php ">Add Member to Level</a> -->
@@ -110,3 +109,50 @@
       <hr class="sidebar-divider">
      
     </ul>
+    <script>
+      (function () {
+        const currentPage = window.location.pathname.split('/').pop() || 'index.php';
+        const sidebarLinks = document.querySelectorAll('.sidebar .nav-link, .sidebar .collapse-item');
+        sidebarLinks.forEach(function (link) {
+          const href = link.getAttribute('href');
+          if (href && href.split('/').pop() === currentPage) {
+            const navItem = link.closest('.nav-item');
+            if (navItem) navItem.classList.add('active');
+            const collapseTarget = link.closest('.collapse');
+            if (collapseTarget) collapseTarget.classList.add('show');
+            const toggle = collapseTarget && collapseTarget.previousElementSibling;
+            if (toggle) {
+              toggle.classList.remove('collapsed');
+              toggle.setAttribute('aria-expanded', 'true');
+            }
+          }
+        });
+
+        const sidebarToggle = document.getElementById('sidebarToggleTop');
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebarToggle && sidebar) {
+          sidebarToggle.addEventListener('click', function (event) {
+            event.preventDefault();
+            document.body.classList.toggle('sidebar-toggled');
+            sidebar.classList.toggle('toggled');
+            if (sidebar.classList.contains('toggled')) {
+              document.querySelectorAll('.sidebar .collapse').forEach(function (item) {
+                item.classList.remove('show');
+              });
+            }
+          });
+        }
+
+        document.addEventListener('click', function (event) {
+          const mobileOpen = window.innerWidth < 768 && document.body.classList.contains('sidebar-toggled');
+          if (!mobileOpen) return;
+          const sidebarEl = document.querySelector('.sidebar');
+          const toggleButton = document.getElementById('sidebarToggleTop');
+          if (!sidebarEl || !toggleButton) return;
+          if (!sidebarEl.contains(event.target) && !toggleButton.contains(event.target)) {
+            document.body.classList.remove('sidebar-toggled');
+            sidebarEl.classList.remove('toggled');
+          }
+        });
+      })();
+    </script>
