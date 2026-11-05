@@ -10,18 +10,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email = trim((string)($_POST['email_address'] ?? ''));
         $phone = trim((string)($_POST['phone_number'] ?? ''));
         $department = trim((string)($_POST['department'] ?? ''));
-        $semester = trim((string)($_POST['semester'] ?? ''));
-        $academicYear = trim((string)($_POST['academic_year'] ?? ''));
         if ($email !== '' && (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 254)) {
             $errorMessage = 'Enter a valid email address.';
         } elseif (strlen($phone) > 40 || ($phone !== '' && !preg_match('/\A[+0-9().\-\s]{5,40}\z/', $phone))) {
             $errorMessage = 'Enter a valid phone number.';
         } elseif (strlen($department) > 191) {
             $errorMessage = 'Department must be 191 characters or fewer.';
-        } elseif (strlen($semester) > 40) {
-            $errorMessage = 'Semester must be 40 characters or fewer.';
-        } elseif (strlen($academicYear) > 40) {
-            $errorMessage = 'Academic year must be 40 characters or fewer.';
         } else {
             $photoPath = (string)($student['photo_path'] ?? '');
             $uploadedPhoto = null;
@@ -57,11 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($errorMessage === '') {
                 $profileStmt = $conn->prepare(
                     "INSERT INTO student_profiles
-                        (student_id, email_address, phone_number, department, semester, academic_year, photo_path)
-                     VALUES (?, ?, ?, ?, ?, ?, ?)
+                        (student_id, email_address, phone_number, department, photo_path)
+                     VALUES (?, ?, ?, ?, ?)
                      ON DUPLICATE KEY UPDATE email_address = VALUES(email_address),
                          phone_number = VALUES(phone_number), department = VALUES(department),
-                         semester = VALUES(semester), academic_year = VALUES(academic_year),
                          photo_path = VALUES(photo_path)"
                 );
                 if (!$profileStmt) {
@@ -72,16 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     http_response_code(500);
                     $errorMessage = 'Unable to update your profile right now.';
                 } else {
-                    $profileStmt->bind_param(
-                        'issssss',
-                        $studentId,
-                        $email,
-                        $phone,
-                        $department,
-                        $semester,
-                        $academicYear,
-                        $photoPath
-                    );
+                    $profileStmt->bind_param('issss', $studentId, $email, $phone, $department, $photoPath);
                     if (!$profileStmt->execute()) {
                         if ($uploadedPhoto !== null && is_file($uploadedPhoto)) {
                             unlink($uploadedPhoto);
@@ -103,45 +87,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $pageTitle = 'My Profile';
 require __DIR__ . '/Includes/student_page_start.php';
 ?>
-<header class="student-page-heading"><div><h1>My profile</h1><p>Your personal and academic information.</p></div></header>
-<?php if (($_GET['updated'] ?? '') === '1'): ?><div class="student-alert success mb-4" role="status">Your contact and academic profile details were saved.</div><?php endif; ?>
+<header class="student-page-heading student-profile-heading">
+    <div>
+        <span class="student-profile-kicker"><i class="fas fa-user-circle" aria-hidden="true"></i> Student account</span>
+        <h1>My profile</h1>
+        <p>Manage your contact details and keep your student information current.</p>
+    </div>
+</header>
+<?php if (($_GET['updated'] ?? '') === '1'): ?><div class="student-alert success mb-4" role="status">Your contact profile details were saved.</div><?php endif; ?>
 <?php if ($errorMessage !== ''): ?><div class="alert alert-danger"><?= studentEscape($errorMessage) ?></div><?php endif; ?>
-<div class="row">
+<div class="row student-profile-page">
     <div class="col-xl-4 mb-4">
-        <section class="student-card text-center">
+        <section class="student-card student-profile-summary">
+            <div class="student-profile-cover">
+                <span><i class="fas fa-id-card mr-1" aria-hidden="true"></i> Student profile</span>
+            </div>
             <?php if (!empty($student['photo_path'])): ?>
-                <img class="student-photo mb-3" src="<?= studentEscape($student['photo_path']) ?>" alt="Student profile photograph">
+                <img class="student-photo student-profile-photo" src="<?= studentEscape($student['photo_path']) ?>" alt="Student profile photograph">
             <?php else: ?>
-                <div class="student-profile-avatar mx-auto mb-3" style="width:112px;height:112px;flex-basis:112px;border-radius:28px;font-size:2rem">
+                <div class="student-profile-avatar student-profile-photo mx-auto mb-3">
                     <?= studentEscape(strtoupper(substr($student['firstName'], 0, 1) . substr($student['lastName'], 0, 1))) ?>
                 </div>
             <?php endif; ?>
-            <h2 class="h5 fw-bold"><?= studentEscape($fullName) ?></h2>
-            <p class="student-muted"><?= studentEscape($admissionNumber) ?></p>
-            <div class="text-left">
-                <div class="profile-row"><span class="student-muted">Department</span><strong><?= studentEscape($student['department'] ?: 'Not provided') ?></strong></div>
-                <div class="profile-row"><span class="student-muted">Semester</span><strong><?= studentEscape($student['semester'] ?: 'Not provided') ?></strong></div>
-                <div class="profile-row"><span class="student-muted">Academic year</span><strong><?= studentEscape($student['academic_year'] ?: 'Not provided') ?></strong></div>
-                <div class="profile-row"><span class="student-muted">Class / group</span><strong><?= studentEscape(($student['className'] ?: '—') . ' / ' . ($student['classArmName'] ?: '—')) ?></strong></div>
+            <div class="student-profile-identity">
+                <h2><?= studentEscape($fullName) ?></h2>
+                <span class="student-profile-admission"><i class="fas fa-id-badge" aria-hidden="true"></i><?= studentEscape($admissionNumber) ?></span>
+            </div>
+            <div class="student-profile-class">
+                <span class="student-profile-class-icon"><i class="fas fa-graduation-cap" aria-hidden="true"></i></span>
+                <div>
+                    <span class="student-profile-detail-label">Class / group</span>
+                    <strong><?= studentEscape(($student['className'] ?: '—') . ' / ' . ($student['classArmName'] ?: '—')) ?></strong>
+                </div>
             </div>
         </section>
     </div>
     <div class="col-xl-8 mb-4">
-        <section class="student-card">
-            <h2 class="student-card-title">Contact and academic details</h2>
+        <section class="student-card student-profile-form-card">
+            <div class="student-profile-form-heading">
+                <span class="student-profile-form-icon"><i class="fas fa-address-card" aria-hidden="true"></i></span>
+                <div>
+                    <h2 class="student-card-title">Contact details</h2>
+                    <p>Update your email, phone number, department, or profile photo.</p>
+                </div>
+            </div>
             <form method="post" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?= studentEscape(studentCsrfToken()) ?>">
+                <div class="student-profile-form-grid">
                 <div class="form-group">
                     <label class="student-form-label" for="department">Department</label>
                     <input class="form-control student-form-control" id="department" type="text" name="department" maxlength="191" value="<?= studentEscape($_POST['department'] ?? $student['department'] ?? '') ?>" autocomplete="organization-title">
-                </div>
-                <div class="form-group">
-                    <label class="student-form-label" for="semester">Semester</label>
-                    <input class="form-control student-form-control" id="semester" type="text" name="semester" maxlength="40" value="<?= studentEscape($_POST['semester'] ?? $student['semester'] ?? '') ?>" placeholder="For example, Semester 1">
-                </div>
-                <div class="form-group">
-                    <label class="student-form-label" for="academic-year">Academic year</label>
-                    <input class="form-control student-form-control" id="academic-year" type="text" name="academic_year" maxlength="40" value="<?= studentEscape($_POST['academic_year'] ?? $student['academic_year'] ?? '') ?>" placeholder="For example, 2026–2027">
                 </div>
                 <div class="form-group">
                     <label class="student-form-label" for="email-address">Email address</label>
@@ -155,8 +150,11 @@ require __DIR__ . '/Includes/student_page_start.php';
                     <label class="student-form-label" for="photo">Profile photograph <span class="student-muted font-weight-normal">(JPEG, PNG or WebP; maximum 2 MB)</span></label>
                     <input class="form-control d-block" id="photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp">
                 </div>
-                <button class="student-action" type="submit"><i class="fas fa-save"></i> Save profile</button>
-                <a class="student-action secondary ms-2" href="student_settings.php">Account settings</a>
+                </div>
+                <div class="student-profile-form-actions">
+                    <button class="student-action" type="submit"><i class="fas fa-save"></i> Save changes</button>
+                    <a class="student-action secondary" href="student_settings.php"><i class="fas fa-sliders-h"></i> Account settings</a>
+                </div>
             </form>
         </section>
     </div>
