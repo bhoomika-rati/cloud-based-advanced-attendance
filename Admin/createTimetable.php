@@ -87,6 +87,62 @@ if (isset($_POST['save_entry']) || isset($_POST['update_entry'])) {
     } elseif ($startTime >= $endTime) {
         $statusMsg = "<div class='alert alert-danger'><i class='fas fa-clock mr-2'></i>Invalid Schedule Times: End time (" . htmlspecialchars($endTime) . ") must be later than start time (" . htmlspecialchars($startTime) . ").</div>";
     } else {
+        $associationStmt = $conn->prepare("
+            SELECT
+                EXISTS(SELECT 1 FROM tblclassarms WHERE Id = ? AND classId = ?) AS valid_arm,
+                EXISTS(
+                    SELECT 1
+                    FROM tblclassteacher ct
+                    LEFT JOIN tblclassteacher_classarms rel ON rel.classteacher_Id = ct.Id
+                    LEFT JOIN tblclassarms ca ON ca.Id = rel.classarm_Id
+                    WHERE ct.Id = ?
+                      AND (
+                          ca.classId = ?
+                          OR (
+                              ct.classId = ?
+                              AND NOT EXISTS (
+                                  SELECT 1 FROM tblclassteacher_classarms assigned
+                                  WHERE assigned.classteacher_Id = ct.Id
+                              )
+                          )
+                      )
+                ) AS valid_teacher,
+                EXISTS(
+                    SELECT 1
+                    FROM tblclassteacher ct
+                    LEFT JOIN tblclassteacher_classarms rel ON rel.classteacher_Id = ct.Id
+                    LEFT JOIN tblclassarms ca ON ca.Id = rel.classarm_Id
+                    WHERE ct.courseId = ?
+                      AND (
+                          ca.classId = ?
+                          OR (
+                              ct.classId = ?
+                              AND NOT EXISTS (
+                                  SELECT 1 FROM tblclassteacher_classarms assigned
+                                  WHERE assigned.classteacher_Id = ct.Id
+                              )
+                          )
+                      )
+                ) AS valid_subject
+        ");
+        $associationStmt->bind_param(
+            "iiiiiiii",
+            $classArmId,
+            $classId,
+            $teacherId,
+            $classId,
+            $classId,
+            $subjectId,
+            $classId,
+            $classId
+        );
+        $associationStmt->execute();
+        $associations = $associationStmt->get_result()->fetch_assoc();
+        $associationStmt->close();
+
+        if (!$associations || !$associations['valid_arm'] || !$associations['valid_teacher'] || !$associations['valid_subject']) {
+            $statusMsg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>The selected class group, teacher, or subject is not associated with this class. Please review your selections.</div>";
+        } else {
         // Teacher scheduling conflict check:
         $tCheck = $conn->prepare("
             SELECT st.id, st.start_time, st.end_time, c.courseName, ca.classArmName, cl.className, ct.firstName, ct.lastName
@@ -167,6 +223,7 @@ if (isset($_POST['save_entry']) || isset($_POST['update_entry'])) {
                 }
             }
         }
+        }
     }
 }
 
@@ -186,6 +243,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'edit' && isset($_GET['id'])) 
     $editingEntry = $eStmt->get_result()->fetch_assoc();
     $eStmt->close();
 }
+
+$formClassId = isset($_POST['classId']) ? intval($_POST['classId']) : intval($editingEntry['class_id'] ?? 0);
+$formClassArmId = isset($_POST['classArmId']) ? intval($_POST['classArmId']) : intval($editingEntry['class_arm_id'] ?? 0);
+$formTeacherId = isset($_POST['teacherId']) ? intval($_POST['teacherId']) : intval($editingEntry['teacher_id'] ?? 0);
+$formSubjectId = isset($_POST['subjectId']) ? intval($_POST['subjectId']) : intval($editingEntry['subject_id'] ?? 0);
 
 // -----------------------------------------------------------------------------
 // 5. Query Filtered Timetable Entries for Selected Session
@@ -371,13 +433,12 @@ $currentDayName = date('l');
                                     <div class="form-group row mb-2">
                                         <div class="col-md-3">
                                             <label class="form-control-label">Class<span class="text-danger ml-1">*</span></label>
-                                            <select name="classId" id="classSelect" class="form-control" required onchange="loadClassArms(this.value)">
+                                            <select name="classId" id="classSelect" class="form-control" required>
                                                 <option value="">-- Select Class --</option>
                                                 <?php
                                                 $clQ = $conn->query("SELECT * FROM tblclass ORDER BY className ASC");
-                                                $assignedClassId = $editingEntry ? $editingEntry['class_id'] : 0;
                                                 while ($clRow = $clQ->fetch_assoc()) {
-                                                    $sel = ($clRow['Id'] == $assignedClassId) ? 'selected' : '';
+                                                    $sel = ($clRow['Id'] == $formClassId) ? 'selected' : '';
                                                     echo '<option value="' . htmlspecialchars($clRow['Id']) . '" ' . $sel . '>' . htmlspecialchars($clRow['className']) . '</option>';
                                                 }
                                                 ?>
@@ -385,37 +446,20 @@ $currentDayName = date('l');
                                         </div>
                                         <div class="col-md-3">
                                             <label class="form-control-label">Class Group (Arm)<span class="text-danger ml-1">*</span></label>
-                                            <select name="classArmId" id="classArmSelect" class="form-control" required data-selected="<?php echo $editingEntry ? htmlspecialchars($editingEntry['class_arm_id']) : ''; ?>">
+                                            <select name="classArmId" id="classArmSelect" class="form-control" required data-selected="<?php echo htmlspecialchars($formClassArmId ?: ''); ?>" disabled>
                                                 <option value="">-- Select Group --</option>
                                             </select>
                                         </div>
                                         <div class="col-md-3">
                                             <label class="form-control-label">Subject (Course)<span class="text-danger ml-1">*</span></label>
-                                            <select name="subjectId" class="form-control" required>
+                                            <select name="subjectId" id="subjectSelect" class="form-control" required data-selected="<?php echo htmlspecialchars($formSubjectId ?: ''); ?>" disabled>
                                                 <option value="">-- Select Subject --</option>
-                                                <?php
-                                                $subQ = $conn->query("SELECT * FROM course ORDER BY courseName ASC");
-                                                $assignedSubId = $editingEntry ? $editingEntry['subject_id'] : 0;
-                                                while ($sRow = $subQ->fetch_assoc()) {
-                                                    $sel = ($sRow['courseId'] == $assignedSubId) ? 'selected' : '';
-                                                    echo '<option value="' . htmlspecialchars($sRow['courseId']) . '" ' . $sel . '>' . htmlspecialchars($sRow['courseName']) . '</option>';
-                                                }
-                                                ?>
                                             </select>
                                         </div>
                                         <div class="col-md-3">
                                             <label class="form-control-label">Teacher<span class="text-danger ml-1">*</span></label>
-                                            <select name="teacherId" class="form-control" required>
+                                            <select name="teacherId" id="teacherSelect" class="form-control" required data-selected="<?php echo htmlspecialchars($formTeacherId ?: ''); ?>" disabled>
                                                 <option value="">-- Select Teacher --</option>
-                                                <?php
-                                                $tQ = $conn->query("SELECT Id, firstName, lastName FROM tblclassteacher ORDER BY firstName ASC");
-                                                $assignedTeacherId = $editingEntry ? $editingEntry['teacher_id'] : 0;
-                                                while ($tRow = $tQ->fetch_assoc()) {
-                                                    $sel = ($tRow['Id'] == $assignedTeacherId) ? 'selected' : '';
-                                                    $tName = htmlspecialchars($tRow['firstName'] . ' ' . $tRow['lastName']);
-                                                    echo '<option value="' . htmlspecialchars($tRow['Id']) . '" ' . $sel . '>' . $tName . '</option>';
-                                                }
-                                                ?>
                                             </select>
                                         </div>
                                     </div>
@@ -611,36 +655,98 @@ $currentDayName = date('l');
     <script src="js/ruang-admin.min.js"></script>
 
     <script>
-        function loadClassArms(classId, callback) {
-            var select = document.getElementById("classArmSelect");
-            select.innerHTML = '<option value="">Loading groups...</option>';
-
-            if (!classId) {
-                select.innerHTML = '<option value="">-- Select Group --</option>';
-                return;
-            }
-
-            var xhr = new XMLHttpRequest();
-            xhr.onreadystatechange = function() {
-                if (this.readyState === 4 && this.status === 200) {
-                    select.innerHTML = this.responseText;
-                    var selectedVal = select.getAttribute("data-selected");
-                    if (selectedVal) {
-                        select.value = selectedVal;
-                    }
-                    if (callback) callback();
-                }
-            };
-            xhr.open("GET", "ajaxClassArms2.php?cid=" + encodeURIComponent(classId), true);
-            xhr.send();
-        }
-
-        $(document).ready(function() {
+        (function() {
             var classSelect = document.getElementById("classSelect");
-            if (classSelect && classSelect.value) {
-                loadClassArms(classSelect.value);
+            var dependentSelects = {
+                arms: document.getElementById("classArmSelect"),
+                teachers: document.getElementById("teacherSelect"),
+                subjects: document.getElementById("subjectSelect")
+            };
+            var optionsRequestNumber = 0;
+
+            function resetSelect(select, placeholder) {
+                select.innerHTML = "";
+                var option = document.createElement("option");
+                option.value = "";
+                option.textContent = placeholder;
+                select.appendChild(option);
+                select.value = "";
+                select.disabled = true;
             }
-        });
+
+            function populateSelect(select, placeholder, items, selectedValue) {
+                resetSelect(select, placeholder);
+                items.forEach(function(item) {
+                    var option = document.createElement("option");
+                    option.value = item.id;
+                    option.textContent = item.name;
+                    select.appendChild(option);
+                });
+                select.disabled = items.length === 0;
+                if (selectedValue) {
+                    select.value = selectedValue;
+                    if (select.value !== selectedValue) {
+                        select.value = "";
+                    }
+                }
+            }
+
+            function loadClassOptions(classId, restoreSelections) {
+                var requestNumber = ++optionsRequestNumber;
+                var selectedValues = restoreSelections ? {
+                    arms: dependentSelects.arms.getAttribute("data-selected"),
+                    teachers: dependentSelects.teachers.getAttribute("data-selected"),
+                    subjects: dependentSelects.subjects.getAttribute("data-selected")
+                } : { arms: "", teachers: "", subjects: "" };
+
+                populateSelect(dependentSelects.arms, "-- Select Group --", [], "");
+                populateSelect(dependentSelects.teachers, "-- Select Teacher --", [], "");
+                populateSelect(dependentSelects.subjects, "-- Select Subject --", [], "");
+                if (!classId) {
+                    return;
+                }
+
+                populateSelect(dependentSelects.arms, "Loading groups...", [], "");
+                populateSelect(dependentSelects.teachers, "Loading teachers...", [], "");
+                populateSelect(dependentSelects.subjects, "Loading subjects...", [], "");
+                fetch("ajaxTimetableOptions.php?class_id=" + encodeURIComponent(classId), {
+                    headers: { "Accept": "application/json" }
+                })
+                    .then(function(response) {
+                        if (!response.ok) {
+                            throw new Error("Unable to load class options.");
+                        }
+                        return response.json();
+                    })
+                    .then(function(data) {
+                        if (requestNumber !== optionsRequestNumber || classSelect.value !== classId) {
+                            return;
+                        }
+                        populateSelect(dependentSelects.arms, "-- Select Group --", data.arms, selectedValues.arms);
+                        populateSelect(dependentSelects.teachers, "-- Select Teacher --", data.teachers, selectedValues.teachers);
+                        populateSelect(dependentSelects.subjects, "-- Select Subject --", data.subjects, selectedValues.subjects);
+                    })
+                    .catch(function() {
+                        if (requestNumber !== optionsRequestNumber || classSelect.value !== classId) {
+                            return;
+                        }
+                        populateSelect(dependentSelects.arms, "Groups unavailable", [], "");
+                        populateSelect(dependentSelects.teachers, "Teachers unavailable", [], "");
+                        populateSelect(dependentSelects.subjects, "Subjects unavailable", [], "");
+                    });
+            }
+
+            classSelect.addEventListener("change", function() {
+                dependentSelects.arms.setAttribute("data-selected", "");
+                dependentSelects.teachers.setAttribute("data-selected", "");
+                dependentSelects.subjects.setAttribute("data-selected", "");
+                loadClassOptions(classSelect.value, false);
+            });
+
+            if (classSelect.value) {
+                loadClassOptions(classSelect.value, true);
+            }
+        })();
     </script>
 </body>
 </html>
