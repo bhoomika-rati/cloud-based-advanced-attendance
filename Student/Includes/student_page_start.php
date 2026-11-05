@@ -9,7 +9,7 @@ $pageTitle = isset($pageTitle) ? (string)$pageTitle : 'Student Portal';
     <title><?= studentEscape($pageTitle) ?> | Attendly</title>
     <link href="../vendore/fontawesome-free/css/all.min.css" rel="stylesheet">
     <link href="vendor/bootstrap5/bootstrap.min.css" rel="stylesheet">
-    <link href="css/student-panel.css" rel="stylesheet">
+    <link href="css/student-panel.css?v=<?= (int) filemtime(__DIR__ . '/../css/student-panel.css') ?>" rel="stylesheet">
 </head>
 <body class="student-app" id="page-top">
 <div id="wrapper">
