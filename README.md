@@ -322,15 +322,53 @@ The QR URL is generated from the server-side `WEBSITE_BASE_URL`, not the browser
 
 The in-page scanner requires a browser supporting `BarcodeDetector` and camera permission; use the phone's built-in camera if that API is unavailable. Browsers generally allow camera/location on localhost, but not on an ordinary HTTP LAN address. To test from a phone on the same Wi-Fi, set `DEVELOPMENT_WEBSITE_BASE_URL` to the computer's private LAN IP and serve it over HTTPS with a certificate trusted by that phone, or set it to a trusted HTTPS development tunnel. Generate a new QR after changing it. Mobile data cannot reach XAMPP directly without a reachable HTTPS tunnel.
 
-#### Test QR attendance from mobile data (temporary Cloudflare Quick Tunnel)
+#### Fix: “The configured public attendance URL is unavailable”
 
-To let students reach the local XAMPP app over their own mobile data, first start Apache and MySQL in XAMPP. Install `cloudflared` or provide its executable path, then run this from PowerShell in the project directory:
+This message means the QR page cannot reach the public HTTPS URL currently configured for the app. For local XAMPP testing from a phone, the usual cause is that the Cloudflare Quick Tunnel stopped or its temporary URL changed. Start a new tunnel using the project script below; it updates the local `.env` URL for you. Do not just refresh the QR page while the tunnel is stopped.
 
-```powershell
-.\scripts\startAttendanceQuickTunnel.ps1 -CloudflaredPath "C:\path\to\cloudflared.exe"
-```
+1. Start **Apache** and **MySQL** in the XAMPP Control Panel. Confirm the local project opens in your browser at `http://localhost/Attendance-Management-System-master/`.
+2. Open PowerShell and run:
 
-The script starts a temporary HTTPS Quick Tunnel to `http://localhost:80`, updates only `DEVELOPMENT_WEBSITE_BASE_URL` in the ignored local `.env`, and checks that the project responds through the public URL. Keep its PowerShell window open and refresh the Faculty QR Attendance page to generate a fresh code. QR generation verifies the configured HTTPS host is public and reachable; if the tunnel has stopped or the URL is stale, it refuses to generate the QR and asks you to restart the tunnel. Scan with Android Chrome while Wi-Fi is off to test mobile-data access.
+   ```powershell
+   Set-Location 'C:\xampp\htdocs\Attendance-Management-System-master'
+   if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+   ```
+
+   Keep `APP_ENV=development` in `.env`. Set `DEVELOPMENT_WEBSITE_BASE_URL` to your local project URL initially. The tunnel script will replace it with the current public URL. Set the database values in `.env` if they do not already match your XAMPP MySQL setup.
+3. Ensure the development signing key is not the example placeholder. Generate a private key with:
+
+   ```powershell
+   & 'C:\xampp\php\php.exe' -r "echo base64_encode(random_bytes(32)), PHP_EOL;"
+   ```
+
+   Copy the generated value into `.env` as `DEVELOPMENT_QR_ATTENDANCE_TOKEN_KEY`. Generate it once and keep it unchanged when restarting the tunnel. Do not post or commit the key.
+4. Install Cloudflare Tunnel if `cloudflared` is not installed. On Windows with `winget`, run:
+
+   ```powershell
+   winget install --id Cloudflare.cloudflared -e
+   ```
+
+   Close and reopen PowerShell, then confirm it is on `PATH`:
+
+   ```powershell
+   Get-Command cloudflared
+   cloudflared --version
+   ```
+
+5. From the project directory, start the temporary tunnel:
+
+   ```powershell
+   Set-Location 'C:\xampp\htdocs\Attendance-Management-System-master'
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+   .\scripts\startAttendanceQuickTunnel.ps1
+   ```
+
+   Leave this PowerShell window open. Wait for the script to print the public HTTPS project URL and **“Public HTTPS project check passed.”** It forwards to Apache on port 80 and updates `DEVELOPMENT_WEBSITE_BASE_URL` in the ignored local `.env`.
+6. Refresh the Faculty **QR_Code Attendance** page and generate a new QR code. Scan it from the phone with Wi-Fi turned off to test mobile-data access. A QR created before a tunnel restart contains the old URL and should be replaced.
+
+If the script cannot find `cloudflared`, reopen PowerShell after installation or pass the full path to its executable using `-CloudflaredPath`. If the public project check does not pass, make sure Apache is running on port 80, the local URL in step 1 works, and the computer has internet access; keep the tunnel window open while checking. The `.env` file is only used for variables not already supplied to Apache/the PHP process. If Apache has old `SetEnv` values for `APP_ENV` or the attendance URL, remove/update them and restart Apache, or it may keep using a stale URL instead of `.env`.
+
+For a deployed server (not a local XAMPP Quick Tunnel), set `APP_ENV=production`, `WEBSITE_BASE_URL` to the reachable public HTTPS project URL, and `QR_ATTENDANCE_TOKEN_KEY` to a private, persistent key in the hosting platform's environment/secret settings. The development variable names above do not configure production.
 
 Quick Tunnels have no uptime guarantee and their hostname changes when restarted. The script updates `.env` each time, so refresh the faculty QR after every restart. They are for temporary development only. Since the tunnel forwards to Apache on port 80, any site/path served by that Apache instance may be reachable through the tunnel; avoid exposing unrelated projects or real data during the test. Do not open the Apache port directly on your router or firewall. A stable hostname requires a Cloudflare account, a domain added to that account, and a named tunnel configured with that hostname; those credentials/domain details are not present in this project.
 

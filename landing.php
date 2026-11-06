@@ -27,7 +27,6 @@
                 <a href="#about">About</a>
                 <a href="#features">Features</a>
                 <a href="#how-it-works">How It Works</a>
-                <a href="#contact">Contact Us</a>
                 <a class="landing-nav-login" href="#login">Login <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
             </div>
         </nav>
@@ -154,16 +153,6 @@
             </div>
         </section>
 
-        <section class="landing-contact" id="contact">
-            <div class="container landing-contact-inner">
-                <div class="landing-contact-copy landing-reveal"><span class="landing-eyebrow landing-eyebrow-dark">Get in touch</span><h2>We’re here to help your campus move forward.</h2><p>For attendance system questions, contact your institution’s support team.</p></div>
-                <div class="landing-contact-details landing-reveal">
-                    <div><span class="landing-contact-icon"><i class="fas fa-university" aria-hidden="true"></i></span><span><small>Institution</small><strong>Your Institution Name</strong></span></div>
-                    <div><span class="landing-contact-icon"><i class="fas fa-envelope" aria-hidden="true"></i></span><span><small>Email</small><a href="mailto:hello@yourinstitution.edu">hello@yourinstitution.edu</a></span></div>
-                    <div><span class="landing-contact-icon"><i class="fas fa-phone-alt" aria-hidden="true"></i></span><span><small>Phone</small><a href="tel:+10000000000">+1 (000) 000-0000</a></span></div>
-                </div>
-            </div>
-        </section>
     </main>
 
     <footer class="landing-footer">
@@ -171,7 +160,7 @@
             <div class="landing-footer-main">
                 <a class="landing-brand landing-footer-brand" href="index.php#home"><img src="img/logo/attendly-mark.svg" alt=""><span><strong>Attendly</strong><small>Your Institution Name</small></span></a>
                 <p>Smarter attendance, stronger campus connections.</p>
-                <div class="landing-footer-links"><a href="index.php#home">Home</a><a href="#about">About</a><a href="#features">Features</a><a href="#how-it-works">How It Works</a><a href="#contact">Contact</a><a href="#login">Login</a></div>
+                <div class="landing-footer-links"><a href="index.php#home">Home</a><a href="#about">About</a><a href="#features">Features</a><a href="#how-it-works">How It Works</a><a href="#login">Login</a></div>
             </div>
             <div class="landing-footer-bottom"><span>&copy; <?= date('Y') ?> Your Institution Name. All rights reserved.</span><span>Powered by Attendly</span></div>
         </div>
